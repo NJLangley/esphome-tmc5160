@@ -2,6 +2,9 @@
 # use 'esphome tmc5160_test.yaml compile' to build.
 substitutions:
   node_name: tmc5160-test
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+
 
 packages:
   wifi: !include common/wifi.yaml
