@@ -1,0 +1,203 @@
+substitutions:
+  friendly_name: Roller Blind Test 2
+  # max_speed: 1200 steps/s
+  max_speed: 200 steps/s
+
+esphome:
+  name: roller-blind-test-2
+  on_boot:
+    priority: -100
+    then:
+      - stepper.report_position:
+          id: blind_stepper
+          position: !lambda "return id(saved_position);"
+      - stepper.set_target:
+          id: blind_stepper
+          target: !lambda "return id(saved_position);"
+      - stepper.set_speed:
+          id: blind_stepper
+          speed: $max_speed
+      - script.execute: update_cover_position
+
+esp32:
+  board: esp32dev
+
+# pid climate log update is noisy, dial it back to warn                                                                                                                                                                                  
+logger:
+  level: INFO
+  logs:
+    dht: INFO
+
+# Enable Home Assistant API
+api:
+  password: "BZL@rDwg3zdKQ!8jQqU"
+  services:
+    - service: set_stepper_target
+      variables:
+        target: int
+      then:
+        - stepper.set_target:
+            id: blind_stepper
+            target: !lambda 'return target;'
+        - script.execute: record_stepper_position
+    - service: set_stepper_speed
+      variables:
+        speed: int
+      then:
+        - stepper.set_speed:
+            id: blind_stepper
+            speed: !lambda 'return speed;'
+    - service: set_stepper_position
+      variables:
+        stepper_position: int
+      then:
+        - stepper.report_position:
+            id: blind_stepper
+            position: !lambda "return stepper_position;"
+        - stepper.set_target:
+            id: blind_stepper
+            target: !lambda "return stepper_position;"
+
+ota:
+  password: "BZL@rDwg3zdKQ!8jQqU"
+  on_begin:
+    then:
+      - logger.log: "OTA start"
+  on_progress:
+    then:
+      - logger.log:
+          format: "OTA progress %0.1f%%"
+          args: ["x"]
+  on_end:
+    then:
+      - logger.log: "OTA end"
+
+wifi:
+  ssid: "My Minions"
+  password: "cqE@&qxvAmm33Znr"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "roller_blind_test_2_hotspot"
+    password: "password"
+
+captive_portal:
+
+
+
+
+
+globals:
+  - id: open_position
+    type: int
+    # Steps per turn x resolution x gearing x turns required
+    # 200 * 4 * 3 * (2100 / (45 * PI))
+    # initial_value: '35520'
+    initial_value: '5000'
+  - id: closed_position
+    type: int
+    initial_value: '0'
+  - id: saved_position
+    type: int
+    initial_value: '1000'
+    restore_value: true
+
+stepper:
+  - platform: a4988
+    id: blind_stepper
+    dir_pin: GPIO13
+    step_pin: GPIO14
+    sleep_pin: GPIO27
+    max_speed: $max_speed
+    acceleration: 50
+    deceleration: 50
+
+cover:
+  - platform: template
+    id: "blind_cover"
+    device_class: blind
+    name: $friendly_name
+    has_position: true
+    optimistic: false
+    open_action:
+      - logger.log: "Opening"
+      - cover.template.publish:
+          id: blind_cover
+          current_operation: OPENING
+      - stepper.set_target:
+          id: blind_stepper
+          target: !lambda "return id(open_position);"
+      - while:
+          condition:
+            lambda: 'return id(blind_stepper).current_position < id(open_position);'
+          then:
+            - script.execute: update_cover_position
+            - delay: 500 ms
+      - script.execute: update_cover_position
+      - script.execute: record_stepper_position
+      - cover.template.publish:
+          id: blind_cover
+          current_operation: IDLE
+    close_action:
+      - logger.log: "Closing"
+      - cover.template.publish:
+          id: blind_cover
+          current_operation: CLOSING
+      - stepper.set_target:
+          id: blind_stepper
+          target: !lambda "return id(closed_position);"
+      - while:
+          condition:
+            lambda: 'return id(blind_stepper).current_position > id(closed_position);'
+          then:
+            - script.execute: update_cover_position
+            - delay: 500 ms
+      - script.execute: update_cover_position
+      - script.execute: record_stepper_position
+      - cover.template.publish:
+          id: blind_cover
+          current_operation: IDLE
+    position_action:
+      - logger.log: "Setting position"
+      - stepper.set_target:
+          id: blind_stepper
+          target: !lambda 'return (float(pos) * float( float(id(open_position)) - float(id(closed_position)) )) + float(id(closed_position));'
+      - while:
+          condition:
+            lambda: 'return id(blind_stepper).current_position != ((float(pos) * float( float(id(open_position)) - float(id(closed_position)) )) + float(id(closed_position)));'
+          then:
+            - script.execute: update_cover_position
+            - delay: 500 ms
+      - script.execute: update_cover_position
+      - script.execute: record_stepper_position
+      - cover.template.publish:
+          id: blind_cover
+          current_operation: IDLE
+    stop_action:
+      - logger.log: "Stopping"
+      - cover.template.publish:
+          id: blind_cover
+          current_operation: IDLE
+      - stepper.set_target:
+          id: blind_stepper
+          target: !lambda 'return id(blind_stepper).current_position;'
+      - script.execute: update_cover_position
+      - script.execute: record_stepper_position
+
+sensor:
+  - platform: template
+    name: $friendly_name Current position"
+    lambda: return id(blind_stepper).current_position;
+    update_interval: 1s
+
+script:
+  - id: update_cover_position
+    then:
+      - cover.template.publish:
+          id: blind_cover
+          position: !lambda 'return float( float(id(blind_stepper).current_position) - float(id(closed_position))) / float( float(id(open_position)) - float(id(closed_position)) );'
+  - id: record_stepper_position
+    then:
+      - globals.set:
+          id: saved_position
+          value: !lambda 'return id(blind_stepper).current_position;'
