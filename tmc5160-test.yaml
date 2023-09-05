@@ -1,5 +1,10 @@
 # this configuration file has all empty custom stepper set up.
 # use 'esphome tmc5160_test.yaml compile' to build.
+substitutions:
+  node_name: tmc5160-test
+
+packages:
+  wifi: !include common/wifi.yaml
 
 esphome:
     name: tmc5160-test
