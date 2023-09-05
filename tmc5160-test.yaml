@@ -2,10 +2,10 @@
 # use 'esphome tmc5160_test.yaml compile' to build.
 
 esphome:
-    name: custom_components_test
+    name: tmc5160-test
     platform: ESP32
     board: esp32dev
-    build_path: .build/custom_components_test
+    # build_path: .build/tmc5160-test
     libraries:
       # Libraries from PlatformIO
       - SPI
@@ -18,12 +18,14 @@ spi:
   clk_pin: GPIO18
   mosi_pin: GPIO23
   miso_pin: GPIO19
+  
 
 stepper:
   - platform: tmc5160
     id: blind_stepper
     cs_pin: GPIO5
     sleep_pin: GPIO14
+    reset_pin: GPIO16
     max_speed: 500
     acceleration: 200
     deceleration: 200

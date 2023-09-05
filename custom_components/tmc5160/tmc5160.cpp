@@ -14,20 +14,19 @@ TMC5160_SPI* motor;
 void TMC5160_Stepper::setup() {
 
   // If the controller reboots without the TMC5160 retting reset, the SPI communication
-  // doesn't work and the motor is unresponsive. The datasheet say that to reset the driver
+  // doesn't work and the motor is unresponsive. The datasheet says that to reset the driver
   // VCC_IO can be dropped low. For drivers with VCC_IO supporting 3.3-5V, the logic is driven
   // by the onboard step-down, so VCC_IO has a very low current draw and we can power it from a
-  // data pin, which means we can drop it low briefly to reset the driver.
-  ESP_LOGCONFIG(TAG, "Resetting TMC5160...");
-  pinMode(16, OUTPUT); 
-  digitalWrite(16, LOW); // Set to low to reset the TMC5160
-  delay(100); // Standstill for automatic tuning
-  digitalWrite(16, HIGH); // Set to low to reset the TMC5160
-  
-  
-  
-  ESP_LOGCONFIG(TAG, "Setting up TMC5160...");
+  // data pin, which means we can drop it low briefly to reset the driver before setup.
+  if (this->reset_pin_ != nullptr) {
+    ESP_LOGCONFIG(TAG, "Resetting TMC5160...");
+    this->reset_pin_->setup();
+    this->reset_pin_->digital_write(false); // Set to low to reset the TMC5160
+    delay(100);
+    this->reset_pin_->digital_write(true); // Set to high to power the TMC5160
+  }
 
+  ESP_LOGCONFIG(TAG, "Setting up TMC5160...");
   if (this->sleep_pin_ != nullptr) {
     this->sleep_pin_->setup();
     this->sleep_pin_->digital_write(false);
