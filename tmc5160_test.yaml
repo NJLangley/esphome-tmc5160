@@ -1,0 +1,29 @@
+# this configuration file has all empty custom stepper set up.
+# use 'esphome tmc5160_test.yaml compile' to build.
+
+esphome:
+    name: custom_components_test
+    platform: ESP32
+    board: esp32dev
+    build_path: .build/custom_components_test
+    libraries:
+      # Libraries from PlatformIO
+      - SPI
+      - tommag/TMC5160 # Requires SPI, must be before this in the list
+
+logger:
+  level: VERBOSE
+
+spi:
+  clk_pin: GPIO18
+  mosi_pin: GPIO23
+  miso_pin: GPIO19
+
+stepper:
+  - platform: tmc5160
+    id: blind_stepper
+    cs_pin: GPIO5
+    sleep_pin: GPIO14
+    max_speed: 500
+    acceleration: 200
+    deceleration: 200
