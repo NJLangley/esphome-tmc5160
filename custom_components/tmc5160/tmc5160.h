@@ -3,6 +3,7 @@
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
 #include "esphome/components/stepper/stepper.h"
+#include <TMC5160.h>
 
 namespace esphome {
 namespace tmc5160 {
@@ -22,6 +23,9 @@ class TMC5160_Stepper : public stepper::Stepper, public Component {
   void setup() override;
   void dump_config() override;
   void loop() override;
+
+  void on_update_speed() override;
+
   void reset_position(float position);
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
 
@@ -36,10 +40,14 @@ class TMC5160_Stepper : public stepper::Stepper, public Component {
   float motor_current_ = 0;
   float motor_hold_power_ = 0;
 
+
   bool is_driver_enabled_;
 
   void enable_driver(bool state);
   void reset_driver();
+
+  TMC5160_SPI* motor;
+  TMC5160::MotorParameters motor_params_;
 };
 
 }  // namespace tmc5160

@@ -9,7 +9,7 @@ namespace tmc5160 {
 
 static const char *const TAG = "tmc5160.stepper";
 
-TMC5160_SPI* motor;
+//TMC5160_SPI* motor;
 
 void TMC5160_Stepper::setup() {
 
@@ -29,29 +29,29 @@ void TMC5160_Stepper::setup() {
   this->cs_pin_->setup();
   this->cs_pin_->digital_write(false);
   uint8_t cs_pin = this->cs_pin_->get_pin();
-  motor = new TMC5160_SPI(cs_pin); //Use default SPI peripheral and SPI settings.
+  this->motor = new TMC5160_SPI(cs_pin); //Use default SPI peripheral and SPI settings.
 
   // This sets the motor & driver parameters /!\ run the configWizard for your driver and motor for fine tuning !
   TMC5160::PowerStageParameters powerStageParams; // defaults.
-  TMC5160::MotorParameters motorParams;
+  TMC5160::MotorParameters* motorParams = &this->motor_params_;
   // TODO: These should be mandatory settings on the YAML
 
   float maxRmsCurrent = 0.33 / (this->current_resistor_ * sqrt(2.0));
-  motorParams.globalScaler = constrain(floor(this->motor_current_ * 256.0 / maxRmsCurrent), 32, 256);
-  motorParams.irun = constrain(floor(this->motor_current_ * 31.0 / (maxRmsCurrent * (float)motorParams.globalScaler / 256.0)), 0, 31);
-  motorParams.ihold = constrain(floor((float)motorParams.irun * this->motor_hold_power_), 0, 31);
+  motorParams->globalScaler = constrain(floor(this->motor_current_ * 256.0 / maxRmsCurrent), 32, 256);
+  motorParams->irun = constrain(floor(this->motor_current_ * 31.0 / (maxRmsCurrent * (float)motorParams->globalScaler / 256.0)), 0, 31);
+  motorParams->ihold = constrain(floor((float)motorParams->irun * this->motor_hold_power_), 0, 31);
 
   SPI.begin();
-  motor->begin(powerStageParams, motorParams, TMC5160::NORMAL_MOTOR_DIRECTION);
+  this->motor->begin(powerStageParams, this->motor_params_, TMC5160::NORMAL_MOTOR_DIRECTION);
+
 
   // ramp definition
-  motor->setRampMode(TMC5160::POSITIONING_MODE);
-  motor->setMaxSpeed(400);
-  motor->setAcceleration(100);
+  this->motor->setRampMode(TMC5160::POSITIONING_MODE);
+
 
   delay(1000); // Standstill for automatic tuning
 
-  ESP_LOGI(TAG, "Motor status:  %d", (int)motor->readStatus());
+  this->dump_config();
 }
 
 void TMC5160_Stepper::dump_config() {
@@ -63,22 +63,16 @@ void TMC5160_Stepper::dump_config() {
   ESP_LOGCONFIG(TAG, "  Motor Current:  %f", this->motor_current_);
   ESP_LOGCONFIG(TAG, "  Motor Hold Power:  %f", this->motor_hold_power_);
 
-  ESP_LOGCONFIG(TAG, "  Motor Driver Info:  %d", (int)motor->readStatus());
-  ESP_LOGCONFIG(TAG, "    Status: %d", (int)motor->readStatus());
-  ESP_LOGCONFIG(TAG, "    Status: %d", (int)motor->readStatus());
-  ESP_LOGCONFIG(TAG, "    Status: %d", (int)motor->readStatus());
-  ESP_LOGCONFIG(TAG, "    Status: %d", (int)motor->readStatus());
+  ESP_LOGCONFIG(TAG, "  Motor Driver Info:  %d", (int)this->motor->readStatus());
+  ESP_LOGCONFIG(TAG, "    Global Scaler:  %d", this->motor_params_.globalScaler);
+  ESP_LOGCONFIG(TAG, "    IRun:  %d", this->motor_params_.irun);
+  ESP_LOGCONFIG(TAG, "    IHold:  %d", this->motor_params_.ihold);
+  // ESP_LOGCONFIG(TAG, "    Status: %d", (int)motor->readStatus());
+  // ESP_LOGCONFIG(TAG, "    Status: %d", (int)motor->readStatus());
+  // ESP_LOGCONFIG(TAG, "    Status: %d", (int)motor->readStatus());
 
   
   LOG_STEPPER(this);
-}
-
-void TMC5160_Stepper::enable_driver(bool state)
-{
-  if (this->sleep_pin_ != nullptr) {
-    this->sleep_pin_->digital_write(!state); // Active low
-  }
-  this->is_driver_enabled_ = state;
 }
 
 void TMC5160_Stepper::reset_driver()
@@ -95,90 +89,68 @@ void TMC5160_Stepper::reset_driver()
 
 // Set initial position, or reset position if needed
 void TMC5160_Stepper::reset_position(float position) {
-  motor->setCurrentPosition(position);
-  motor->setTargetPosition(position);
+  this->motor->setCurrentPosition(position);
+  this->motor->setTargetPosition(position);
+}
+
+
+
+void TMC5160_Stepper::enable_driver(bool state)
+{
+  ESP_LOGD(TAG, "enable_driver::state=%s", state ? "True" : "False");
+  if (this->sleep_pin_ != nullptr) {
+    this->sleep_pin_->digital_write(!state); // Active low
+    ESP_LOGD(TAG, "enable_driver::setting driver to =%s", !state ? "On" : "Off");  // Active low
+  }
+  this->is_driver_enabled_ = state;
+  ESP_LOGD(TAG, "enable_driver::this->is_driver_enabled_=%s", this->is_driver_enabled_ ? "True" : "False");
+}
+
+void TMC5160_Stepper::on_update_speed() {
+  this->motor->setMaxSpeed(this->max_speed_);
 }
 
 
 void TMC5160_Stepper::loop() {
-  // bool at_target = this->has_reached_target();
+  bool at_target = this->has_reached_target();
 
-  // We should be able to talk to the driver even if it is not enabled, but
-  // we won't get movement until we enable it.
-  this->enable_driver(true);
+  this->current_position = motor->getCurrentPosition();
+  this->current_speed_ = motor->getCurrentSpeed();
 
-  // If the sleep pin state is true, the driver is active
+  // If the motor is moving the the opposite direction to the target we need to tell it the new target
+  bool change_direction = (this->current_position > this->target_position && this->current_speed_ > 0) ||
+                          (this->current_position < this->target_position && this->current_speed_ < 0);
 
-  // is_motor_moving = motor->getCurrentSpeed() != 0;
-
-  // Check the speed, does it go negative in reverse? If so
-  // we can use this to determine if we are moving the correct
-  // direction
-
-
-
-
-
-
-  // uint32_t now = millis();
-  // static unsigned long t_dirchange, t_echo;
-  // static bool dir;
-
-  // // every n seconds or so...
-  // if ( now - t_dirchange > 30000 )
-  // {
-  //   t_dirchange = now;
-
-  //   // reverse direction
-  //   dir = !dir;
-  //   motor->setTargetPosition(dir ? 2000 : 0);  // 1 full rotation = 200s/rev
-  // }
-
-  // // print out current position
-  // if( now - t_echo > 100 )
-  // {
-  //   t_echo = now;
-
-  //   // get the current target position
-  //   float xactual = motor->getCurrentPosition();
-  //   float vactual = motor->getCurrentSpeed();
-    
-  //   ESP_LOGI(TAG, "Motor status:  %d", (int)motor->readStatus());
-  //   ESP_LOGD(TAG, "Current position:  %f", xactual);
-  //   ESP_LOGD(TAG, "Current speed:     %f", vactual);
-  // }
+  // If we have reached the target, disable the driver if the pin is set. Otherwise the driver will use the hold current
+  if (at_target) {
+    this->enable_driver(false);
+  }
+  // Otherwise if the direction is wrong, or the motor is not moving and not at the target, update the driver target
+  else if (change_direction || this->current_speed_ == 0){
+    // Acceleration is not change by an event handler like the speed, so update it any time we start a movement
+    this->motor->setAccelerations(this->acceleration_, this->deceleration_, this->acceleration_, this->deceleration_);
+    this->motor->setTargetPosition(this->target_position);
+  }
 
 
 
 
+  uint32_t now = millis();
+  static unsigned long t_echo;
+  const int seconds = 5;
+  // every n seconds or so...
+  if ( now - t_echo > seconds * 1000 )
+  {
+    // Driver enabled status
+    this->enable_driver(!this->is_driver_enabled_);
+    ESP_LOGI(TAG, "Driver enabled: %s", this->is_driver_enabled_ ? "True" : "False");
+    ESP_LOGI(TAG, "  Global Scaler: %u", (unsigned int)this->motor->readRegister(TMC5160_Reg::GLOBAL_SCALER));
+    ESP_LOGI(TAG, "  Driver status description: %s", this->motor->getDriverStatusDescription(this->motor->getDriverStatus()));
+
+    t_echo = now;
+  }
 
 
-
-
-
-  // if (this->sleep_pin_ != nullptr) {
-  //   bool sleep_rising_edge = !is_driver_enabled_ & !at_target;
-  //   this->sleep_pin_->digital_write(!at_target);
-  //   this->is_driver_enabled_ = !at_target;
-  //   if (sleep_rising_edge) {
-  //     delayMicroseconds(1000);
-  //   }
-  // }
-//   if (at_target) {
-//     this->high_freq_.stop();
-//   } else {
-//     this->high_freq_.start();
-//   }
-
-//   int32_t dir = this->should_step_();
-//   if (dir == 0)
-//     return;
-
-//   this->cs_pin_->digital_write(dir == 1);
-//   delayMicroseconds(50);
-//   this->step_pin_->digital_write(true);
-//   delayMicroseconds(5);
-//   this->step_pin_->digital_write(false);
 }
 
 }  // namespace tmc5160
