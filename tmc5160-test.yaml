@@ -21,10 +21,15 @@ esphome:
       # Libraries from PlatformIO
       - SPI
       - tommag/TMC5160 # Requires SPI, must be before this in the list
+    on_boot: 
+      then:
+        - script.execute: 
+            id: set_stepper_position
+            position: !lambda "return id(saved_position);"
 
 api:
-  encryption:
-    key: !secret ha_api_key
+  # encryption:
+  #   key: !secret ha_api_key
   services:
     - service: set_stepper_target
       variables:
@@ -32,25 +37,28 @@ api:
       then:
         - stepper.set_target:
             id: blind_stepper
-            target: !lambda 'return target;'
+            target: !lambda "return target;"
         - script.execute: record_stepper_position
-    # - service: set_stepper_position
-    #   variables:
-    #     stepper_position: int
-    #   then:
-    #     - stepper.report_position:
-    #         id: blind_stepper
-    #         position: !lambda "return stepper_position;"
-    #     - stepper.set_target:
-    #         id: blind_stepper
-    #         target: !lambda "return stepper_position;"
+    - service: set_stepper_position
+      variables:
+        position: int
+      then:
+        - script.execute: 
+            id: set_stepper_position
+            position: !lambda "return position;"
 
 script:
   - id: record_stepper_position
     then:
       - globals.set:
           id: saved_position
-          value: !lambda 'return id(blind_stepper).current_position;'
+          value: !lambda "return id(blind_stepper).current_position;"
+  - id: set_stepper_position
+    parameters:
+      position: int
+    then:
+      - lambda: "id(blind_stepper).set_position(position);"
+      - script.execute: record_stepper_position
         
 logger:
   level: VERBOSE
@@ -84,7 +92,7 @@ stepper:
 
     current_resistor: 0.075ohm
     # motor_current: 1.68A
-    motor_current: 1.2A
+    motor_current: 1.4A
     motor_hold_power: 30%
 
     max_speed: 500

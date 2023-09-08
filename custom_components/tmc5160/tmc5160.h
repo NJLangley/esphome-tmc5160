@@ -26,7 +26,7 @@ class TMC5160_Stepper : public stepper::Stepper, public Component {
 
   void on_update_speed() override;
 
-  void reset_position(float position);
+  void set_position(float position);
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
 
  protected:
