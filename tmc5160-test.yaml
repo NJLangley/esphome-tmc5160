@@ -78,13 +78,14 @@ stepper:
     cs_pin: GPIO5
     sleep_pin: 
       number: GPIO14
-      inverted: true
+      inverted: false
 
     reset_pin: GPIO16
 
-    current_resistor: 0.0075ohm
-    motor_current: 1.68A
-    motor_hold_power: 0%
+    current_resistor: 0.075ohm
+    # motor_current: 1.68A
+    motor_current: 1.2A
+    motor_hold_power: 30%
 
     max_speed: 500
     acceleration: 200
