@@ -25,7 +25,33 @@ esphome:
 api:
   encryption:
     key: !secret ha_api_key
+  services:
+    - service: set_stepper_target
+      variables:
+        target: int
+      then:
+        - stepper.set_target:
+            id: blind_stepper
+            target: !lambda 'return target;'
+        - script.execute: record_stepper_position
+    # - service: set_stepper_position
+    #   variables:
+    #     stepper_position: int
+    #   then:
+    #     - stepper.report_position:
+    #         id: blind_stepper
+    #         position: !lambda "return stepper_position;"
+    #     - stepper.set_target:
+    #         id: blind_stepper
+    #         target: !lambda "return stepper_position;"
 
+script:
+  - id: record_stepper_position
+    then:
+      - globals.set:
+          id: saved_position
+          value: !lambda 'return id(blind_stepper).current_position;'
+        
 logger:
   level: VERBOSE
 
@@ -33,13 +59,33 @@ spi:
   clk_pin: GPIO18
   mosi_pin: GPIO23
   miso_pin: GPIO19
+
+globals:
+  - id: open_position
+    type: int
+    initial_value: '5000'
+  - id: closed_position
+    type: int
+    initial_value: '0'
+  - id: saved_position
+    type: int
+    initial_value: '1000'
+    restore_value: true
   
 stepper:
   - platform: tmc5160
     id: blind_stepper
     cs_pin: GPIO5
-    sleep_pin: GPIO14
+    sleep_pin: 
+      number: GPIO14
+      inverted: true
+
     reset_pin: GPIO16
+
+    current_resistor: 0.0075ohm
+    motor_current: 1.68A
+    motor_hold_power: 0%
+
     max_speed: 500
     acceleration: 200
     deceleration: 200
