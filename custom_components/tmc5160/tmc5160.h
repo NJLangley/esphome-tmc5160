@@ -18,10 +18,12 @@ class TMC5160_Stepper : public stepper::Stepper, public Component {
   void set_current_resistor(float current_resistor) { this->current_resistor_ = current_resistor; }
   void set_motor_current(float motor_current) { this->motor_current_ = motor_current; }
   void set_motor_hold_power(float motor_hold_power) { this->motor_hold_power_ = motor_hold_power; }
+  void set_motor_direction_reversed(bool motor_direction_reversed) { this->motor_direction_reversed_ = motor_direction_reversed; }
   void setup() override;
   void dump_config() override;
   void loop() override;
   float get_speed() { return this->current_speed_; }
+  void stop();
   void set_position(float position);
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
   
@@ -35,6 +37,7 @@ class TMC5160_Stepper : public stepper::Stepper, public Component {
   float current_resistor_ = 1;
   float motor_current_ = 0;
   float motor_hold_power_ = 0;
+  bool motor_direction_reversed_ = false;
   bool is_driver_enabled_;
   TMC5160_SPI* motor;
   TMC5160::MotorParameters motor_params_;

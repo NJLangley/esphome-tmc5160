@@ -1,8 +1,9 @@
 # this configuration file has all empty custom stepper set up.
 # use 'esphome tmc5160_test.yaml compile' to build.
 substitutions:
-  node_name: tmc5160-test
+  node_name: tmc5160_test
   friendly_name: Roller Blind Test
+  
 
   # Can reference secrets from YAML's in the common folder, so use substitutions instead
   wifi_ssid: !secret wifi_ssid
@@ -27,6 +28,7 @@ esphome:
         - script.execute: 
             id: set_stepper_position
             position: !lambda "return id(saved_position);"
+        - script.execute: publish_cover_position
 
 api:
   # encryption:
@@ -39,7 +41,8 @@ api:
         - stepper.set_target:
             id: blind_stepper
             target: !lambda "return target;"
-        - script.execute: record_stepper_position
+        - script.execute: monitor_cover_movement
+    
     - service: set_stepper_position
       variables:
         position: int
@@ -47,6 +50,9 @@ api:
         - script.execute: 
             id: set_stepper_position
             position: !lambda "return position;"
+        - script.execute: publish_cover_position
+        - script.execute: publish_cover_state
+        
 
 script:
   - id: record_stepper_position
@@ -61,12 +67,15 @@ script:
       - lambda: "id(blind_stepper).set_position(position);"
       - script.execute: record_stepper_position
 
-  - id: update_cover_position
+  - id: publish_cover_position
     then:
       - cover.template.publish:
           id: blind_cover
-          position: !lambda 'return float( float(id(blind_stepper).current_position) - float(id(closed_position))) / float( float(id(open_position)) - float(id(closed_position)) );'
-  
+          position: !lambda return float( float(id(blind_stepper).current_position) - float(id(closed_position))) / float( float(id(open_position)) - float(id(closed_position)) );
+      - sensor.template.publish:
+          id: ${node_name}_current_position
+          state: !lambda return id(blind_stepper).current_position;
+
   - id: publish_cover_state
     then:
       - if:
@@ -82,7 +91,7 @@ script:
                 current_operation: !lambda "return id(blind_stepper).get_speed() > 0 ? COVER_OPERATION_CLOSING : COVER_OPERATION_OPENING;"
 
   # Generic script to track the state while the cover is moving. Used by cover open, close, position and stop actions
-  - id: track_cover_movement
+  - id: monitor_cover_movement
     then:
       # 1) Set the cover state based on the direction of the stepper
       - script.execute: publish_cover_state
@@ -91,16 +100,17 @@ script:
           condition:
             lambda: return !id(blind_stepper).has_reached_target();
           then:
-            - script.execute: update_cover_position
+            - script.execute: publish_cover_position
             - delay: 200 ms
       # 3) Update the cover position once the motor stops
-      - script.execute: update_cover_position
+      - script.execute: publish_cover_position
       # 4) Record the stepper position to non-volitile memory
       - script.execute: record_stepper_position
       # 5) publish the state as idle
       - cover.template.publish:
           id: blind_cover
           current_operation: IDLE
+      
         
 logger:
   level: VERBOSE
@@ -116,7 +126,8 @@ globals:
     initial_value: '0'
   - id: closed_position
     type: int
-    initial_value: '7000'
+    initial_value: '2000'
+    # initial_value: '7000'
   - id: saved_position
     type: int
     initial_value: '1000'
@@ -138,7 +149,7 @@ stepper:
     acceleration: 200
     deceleration: 200
 
-    # TODO: Add option in invert the motor direction
+    # direction: reversed
 
 
 
@@ -154,24 +165,32 @@ cover:
     - stepper.set_target:
         id: blind_stepper
         target: !lambda "return id(open_position);"
-    - script.execute:
-        id: track_cover_movement
+    - script.execute: monitor_cover_movement
   close_action:
     - logger.log: "Closing"
     - stepper.set_target:
         id: blind_stepper
         target: !lambda "return id(closed_position);"
-    - script.execute:
-        id: track_cover_movement
+    - script.execute: monitor_cover_movement
   position_action:
     - logger.log: "Setting position"
     - stepper.set_target:
         id: blind_stepper
         target: !lambda "return (float(pos) * float( float(id(open_position)) - float(id(closed_position)) )) + float(id(closed_position));"
-    - script.execute:
-        id: track_cover_movement
+    - script.execute: monitor_cover_movement
   stop_action:
     - logger.log: "Stopping"
+    - lambda: "id(blind_stepper).stop();"
+    - script.execute: monitor_cover_movement
 
-    - script.execute:
-        id: track_cover_movement
+sensor:
+  - platform: template
+    id: ${node_name}_current_position
+    name: ${friendly_name} Current position
+    lambda: return id(blind_stepper).current_position;
+    update_interval: never
+  - platform: template
+    id: ${node_name}_closed_position
+    name: ${friendly_name} Closed position
+    lambda: return id(closed_position);
+    update_interval: never
