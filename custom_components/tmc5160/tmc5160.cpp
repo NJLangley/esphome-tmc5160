@@ -124,7 +124,8 @@ void TMC5160_Stepper::on_update_speed() {
 
 
 void TMC5160_Stepper::stop() {
-  this->motor->stop();
+  ESP_LOGCONFIG(TAG, "Stopping driver");
+  should_stop_ = true;
 }
 
 void TMC5160_Stepper::loop() {
@@ -140,11 +141,29 @@ void TMC5160_Stepper::loop() {
   // If we have reached the target, disable the driver if the pin is set. Otherwise the driver will use the hold current
   if (at_target && this->is_driver_enabled_)
     this->enable_driver(false);
-  
+  // If the stop flag is set, call stop
+  else if (this->should_stop_){
+    ESP_LOGCONFIG(TAG, "Stopping driver");
+    this->motor->stop();
+    should_stop_ = false;
+    is_stopping_ = true;
+  }
+  // If we are waiting for the motor to stop, check if it has
+  else if (this->is_stopping_){
+    if (this->current_speed_ == 0){
+      ESP_LOGCONFIG(TAG, "Stopped, set target to currect position");
+      float stopped_position = motor->getCurrentPosition();
+      this->motor->setTargetPosition(stopped_position);
+      this->target_position = stopped_position;
+      this->is_stopping_ = false;
+    }
+  }
   // Otherwise if the direction is wrong, or the motor is not moving and not at the target, update the driver target
   else if (change_direction || (this->current_speed_ == 0 && !at_target)){
     // Acceleration is not change by an event handler like the speed, so update it any time we start a movement
-    //this->motor->setAccelerations(this->acceleration_, this->deceleration_, this->acceleration_, this->deceleration_);
+    motor->setMaxSpeed(this->max_speed_);
+    motor->setAcceleration(this->acceleration_);
+    // this->motor->setAccelerations(this->acceleration_, this->deceleration_, this->acceleration_, this->deceleration_);
     this->motor->setTargetPosition(this->target_position);
 
     // If the motor is not enabled, enable it now

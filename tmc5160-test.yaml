@@ -52,6 +52,9 @@ api:
             position: !lambda "return position;"
         - script.execute: publish_cover_position
         - script.execute: publish_cover_state
+        - sensor.template.publish:
+            id: ${node_name}_closed_position
+            state: !lambda return float(id(closed_position));
         
 
 script:
@@ -101,7 +104,7 @@ script:
             lambda: return !id(blind_stepper).has_reached_target();
           then:
             - script.execute: publish_cover_position
-            - delay: 200 ms
+            - delay: 500 ms
       # 3) Update the cover position once the motor stops
       - script.execute: publish_cover_position
       # 4) Record the stepper position to non-volitile memory
@@ -126,8 +129,7 @@ globals:
     initial_value: '0'
   - id: closed_position
     type: int
-    initial_value: '2000'
-    # initial_value: '7000'
+    initial_value: '7000'
   - id: saved_position
     type: int
     initial_value: '1000'
@@ -181,7 +183,7 @@ cover:
   stop_action:
     - logger.log: "Stopping"
     - lambda: "id(blind_stepper).stop();"
-    - script.execute: monitor_cover_movement
+    # - script.execute: monitor_cover_movement
 
 sensor:
   - platform: template
