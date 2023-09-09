@@ -42,6 +42,9 @@ class TMC5160_Stepper : public stepper::Stepper, public Component {
   TMC5160_SPI* motor;
   TMC5160::MotorParameters motor_params_;
 
+  bool should_stop_ = false;
+  bool is_stopping_ = false;
+
   void enable_driver(bool state);
   void reset_driver();
 };
