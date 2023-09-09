@@ -84,10 +84,7 @@ stepper:
   - platform: tmc5160
     id: blind_stepper
     cs_pin: GPIO5
-    sleep_pin: 
-      number: GPIO14
-      inverted: false
-
+    sleep_pin: GPIO14
     reset_pin: GPIO16
 
     current_resistor: 0.075ohm
@@ -98,3 +95,5 @@ stepper:
     max_speed: 500
     acceleration: 200
     deceleration: 200
+
+    # TODO: Add option in invert the motor direction
