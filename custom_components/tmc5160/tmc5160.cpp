@@ -42,7 +42,11 @@ void TMC5160_Stepper::setup() {
   motorParams->ihold = constrain(floor((float)motorParams->irun * this->motor_hold_power_), 0, 31);
 
   SPI.begin();
-  this->motor->begin(powerStageParams, this->motor_params_, TMC5160::NORMAL_MOTOR_DIRECTION);
+  this->motor->begin(
+    powerStageParams,
+    this->motor_params_,
+    motor_direction_reversed_ ? TMC5160::INVERSE_MOTOR_DIRECTION : TMC5160::NORMAL_MOTOR_DIRECTION
+  );
 
 
   // ramp definition
@@ -64,6 +68,7 @@ void TMC5160_Stepper::dump_config() {
   ESP_LOGCONFIG(TAG, "  Current Resistor:  %f", this->current_resistor_);
   ESP_LOGCONFIG(TAG, "  Motor Current:  %f", this->motor_current_);
   ESP_LOGCONFIG(TAG, "  Motor Hold Power:  %f", this->motor_hold_power_);
+  ESP_LOGCONFIG(TAG, "  Motor Direction Reversed:  %s", this->motor_direction_reversed_ ? "Yes" : "No");
 
   ESP_LOGCONFIG(TAG, "  Motor Driver Info:  %d", (int)this->motor->readStatus());
   ESP_LOGCONFIG(TAG, "    Global Scaler:  %d", this->motor_params_.globalScaler);
@@ -117,6 +122,10 @@ void TMC5160_Stepper::on_update_speed() {
   this->motor->setMaxSpeed(this->max_speed_);
 }
 
+
+void TMC5160_Stepper::stop() {
+  this->motor->stop();
+}
 
 void TMC5160_Stepper::loop() {
   bool at_target = this->has_reached_target();
