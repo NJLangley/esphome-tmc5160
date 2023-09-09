@@ -2,6 +2,7 @@
 # use 'esphome tmc5160_test.yaml compile' to build.
 substitutions:
   node_name: tmc5160-test
+  friendly_name: Roller Blind Test
 
   # Can reference secrets from YAML's in the common folder, so use substitutions instead
   wifi_ssid: !secret wifi_ssid
@@ -59,6 +60,47 @@ script:
     then:
       - lambda: "id(blind_stepper).set_position(position);"
       - script.execute: record_stepper_position
+
+  - id: update_cover_position
+    then:
+      - cover.template.publish:
+          id: blind_cover
+          position: !lambda 'return float( float(id(blind_stepper).current_position) - float(id(closed_position))) / float( float(id(open_position)) - float(id(closed_position)) );'
+  
+  - id: publish_cover_state
+    then:
+      - if:
+          condition:
+            lambda: return id(blind_stepper).has_reached_target();
+          then:
+            - cover.template.publish:
+                id: blind_cover
+                current_operation: IDLE
+          else:
+            - cover.template.publish:
+                id: blind_cover
+                current_operation: !lambda "return id(blind_stepper).get_speed() > 0 ? COVER_OPERATION_CLOSING : COVER_OPERATION_OPENING;"
+
+  # Generic script to track the state while the cover is moving. Used by cover open, close, position and stop actions
+  - id: track_cover_movement
+    then:
+      # 1) Set the cover state based on the direction of the stepper
+      - script.execute: publish_cover_state
+      # 2) While the stepper is moving, poll the position and update the cover
+      - while:
+          condition:
+            lambda: return !id(blind_stepper).has_reached_target();
+          then:
+            - script.execute: update_cover_position
+            - delay: 200 ms
+      # 3) Update the cover position once the motor stops
+      - script.execute: update_cover_position
+      # 4) Record the stepper position to non-volitile memory
+      - script.execute: record_stepper_position
+      # 5) publish the state as idle
+      - cover.template.publish:
+          id: blind_cover
+          current_operation: IDLE
         
 logger:
   level: VERBOSE
@@ -71,10 +113,10 @@ spi:
 globals:
   - id: open_position
     type: int
-    initial_value: '5000'
+    initial_value: '0'
   - id: closed_position
     type: int
-    initial_value: '0'
+    initial_value: '7000'
   - id: saved_position
     type: int
     initial_value: '1000'
@@ -89,7 +131,7 @@ stepper:
 
     current_resistor: 0.075ohm
     # motor_current: 1.68A
-    motor_current: 1.4A
+    motor_current: 1.68A
     motor_hold_power: 30%
 
     max_speed: 500
@@ -97,3 +139,39 @@ stepper:
     deceleration: 200
 
     # TODO: Add option in invert the motor direction
+
+
+
+cover:
+- platform: template
+  id: "blind_cover"
+  device_class: blind
+  name: $friendly_name
+  has_position: true
+  optimistic: false
+  open_action:
+    - logger.log: "Opening"
+    - stepper.set_target:
+        id: blind_stepper
+        target: !lambda "return id(open_position);"
+    - script.execute:
+        id: track_cover_movement
+  close_action:
+    - logger.log: "Closing"
+    - stepper.set_target:
+        id: blind_stepper
+        target: !lambda "return id(closed_position);"
+    - script.execute:
+        id: track_cover_movement
+  position_action:
+    - logger.log: "Setting position"
+    - stepper.set_target:
+        id: blind_stepper
+        target: !lambda "return (float(pos) * float( float(id(open_position)) - float(id(closed_position)) )) + float(id(closed_position));"
+    - script.execute:
+        id: track_cover_movement
+  stop_action:
+    - logger.log: "Stopping"
+
+    - script.execute:
+        id: track_cover_movement

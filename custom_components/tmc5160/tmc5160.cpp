@@ -152,13 +152,13 @@ void TMC5160_Stepper::loop() {
   // every n seconds or so...
   if ( now - t_echo > seconds * 1000 )
   {
-    ESP_LOGI(TAG, "Driver enabled: %s", this->is_driver_enabled_ ? "True" : "False");
-    ESP_LOGI(TAG, "  Driver status description: %s", this->motor->getDriverStatusDescription(this->motor->getDriverStatus()));
-    ESP_LOGI(TAG, "  change_direction: %d", change_direction);
-    ESP_LOGI(TAG, "  current_position: %d", this->current_position);
-    ESP_LOGI(TAG, "  target_position: %d", this->target_position);
-    ESP_LOGI(TAG, "  current_speed_: %f", this->current_speed_);
-    ESP_LOGI(TAG, "  driver max speed: %f", this->current_speed_);
+    ESP_LOGD(TAG, "Driver enabled: %s", this->is_driver_enabled_ ? "True" : "False");
+    ESP_LOGD(TAG, "  Driver status description: %s", this->motor->getDriverStatusDescription(this->motor->getDriverStatus()));
+    ESP_LOGD(TAG, "  change_direction: %d", change_direction);
+    ESP_LOGD(TAG, "  current_position: %d", this->current_position);
+    ESP_LOGD(TAG, "  target_position: %d", this->target_position);
+    ESP_LOGD(TAG, "  current_speed_: %f", this->current_speed_);
+    ESP_LOGD(TAG, "  driver max speed: %f", this->max_speed_);
 
     t_echo = now;
   }
