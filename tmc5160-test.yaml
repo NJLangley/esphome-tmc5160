@@ -29,6 +29,9 @@ esphome:
             id: set_stepper_position
             position: !lambda "return id(saved_position);"
         - script.execute: publish_cover_position
+        - sensor.template.publish:
+            id: ${node_name}_closed_position
+            state: !lambda return id(closed_position);
 
 api:
   # encryption:
@@ -52,9 +55,6 @@ api:
             position: !lambda "return position;"
         - script.execute: publish_cover_position
         - script.execute: publish_cover_state
-        - sensor.template.publish:
-            id: ${node_name}_closed_position
-            state: !lambda return float(id(closed_position));
         
 
 script:
@@ -104,7 +104,7 @@ script:
             lambda: return !id(blind_stepper).has_reached_target();
           then:
             - script.execute: publish_cover_position
-            - delay: 500 ms
+            - delay: 100 ms
       # 3) Update the cover position once the motor stops
       - script.execute: publish_cover_position
       # 4) Record the stepper position to non-volitile memory
