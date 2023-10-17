@@ -8,10 +8,12 @@ substitutions:
   # Can reference secrets from YAML's in the common folder, so use substitutions instead
   wifi_ssid: !secret wifi_ssid
   wifi_password: !secret wifi_password
+  wifi_static_ip: !secret wifi_static_ip_tmc5160_test
+  wifi_gateway: !secret wifi_gateway
   ota_password: !secret ota_password
 
 packages:
-  wifi: !include common/wifi.yaml
+  wifi: !include common/wifi_static_ip.yaml
   ota: !include common/ota.yaml
 
 esphome:
