@@ -198,3 +198,7 @@ sensor:
     name: ${friendly_name} Closed position
     lambda: return id(closed_position);
     update_interval: never
+
+  
+  - platform: uptime
+    name: Uptime Sensor
