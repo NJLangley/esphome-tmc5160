@@ -1,0 +1,234 @@
+# this configuration file has all empty custom stepper set up.
+# use 'esphome tmc5160_test.yaml compile' to build.
+substitutions:
+  node_name: lounge_blind
+  friendly_name: Roller Blind Test
+  
+
+  # Can reference secrets from YAML's in the common folder, so use substitutions instead
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+  wifi_static_ip: !secret wifi_static_ip_lounge_blind
+  wifi_gateway: !secret wifi_gateway
+  ota_password: !secret ota_password
+
+packages:
+  wifi: !include common/wifi_static_ip.yaml
+  ota: !include common/ota.yaml
+
+esphome:
+    name: tmc5160-test
+    platform: ESP32
+    board: esp32dev
+    # build_path: .build/tmc5160-test
+    libraries:
+      # Libraries from PlatformIO
+      - SPI
+      - tommag/TMC5160 # Requires SPI, must be before this in the list
+    on_boot: 
+      then:
+        - script.execute: 
+            id: set_stepper_position
+            position: !lambda "return id(saved_position);"
+        - script.execute: publish_cover_position
+        - sensor.template.publish:
+            id: ${node_name}_closed_position
+            state: !lambda return id(closed_position);
+
+api:
+  # encryption:
+  #   key: !secret ha_api_key
+  services:
+    # This is the service to tell the stepper where to move to
+    - service: set_stepper_target
+      variables:
+        target: int
+      then:
+        - stepper.set_target:
+            id: blind_stepper
+            target: !lambda "return target;"
+        - script.execute: monitor_cover_movement
+    
+    # This service changes the current position without moving the stepper. Allows fine tuning the position of the blind
+    - service: set_stepper_position
+      variables:
+        position: int
+      then:
+        - if:
+            condition:
+              lambda: return id(blind_stepper).get_is_driver_enabled();
+            then:
+              - homeassistant.service:
+                  service: system_log.write
+                  data:
+                    message: "Service set_stepper_position is not available while the blind motor is moving. Please try again once the blind has stopped."
+                    logger: esphome.tmc5160
+                    level: error
+            else:
+              - script.execute: 
+                  id: set_stepper_position
+                  position: !lambda "return position;"
+              - script.execute: publish_cover_position
+              - script.execute: publish_cover_state
+
+
+    - service: log_message
+      variables:
+        message: string
+      then:
+# !lambda "return id(blind_stepper).set_position(position) > 0;"
+        - lambda: >-
+            static const char *const TAG = "tmc5160.stepper";
+            ESP_LOGI(TAG, "service call: log_message: %s", message);
+        - homeassistant.service:
+            service: system_log.write
+            data:
+              message: !lambda "return \"service call: log_message: \" + message;"
+              logger: esphome.tmc5160
+              level: error
+        
+
+script:
+  - id: record_stepper_position
+    then:
+      - globals.set:
+          id: saved_position
+          value: !lambda "return id(blind_stepper).current_position;"
+  
+  - id: set_stepper_position
+    parameters:
+      position: int
+    then:
+      - lambda: "id(blind_stepper).set_position(position);"
+      - script.execute: record_stepper_position
+
+  - id: publish_cover_position
+    then:
+      - cover.template.publish:
+          id: blind_cover
+          position: !lambda return float( float(id(blind_stepper).current_position) - float(id(closed_position))) / float( float(id(open_position)) - float(id(closed_position)) );
+      - sensor.template.publish:
+          id: ${node_name}_current_position
+          state: !lambda return id(blind_stepper).current_position;
+
+  - id: publish_cover_state
+    then:
+      - if:
+          condition:
+            lambda: return id(blind_stepper).has_reached_target();
+          then:
+            - cover.template.publish:
+                id: blind_cover
+                current_operation: IDLE
+          else:
+            - cover.template.publish:
+                id: blind_cover
+                current_operation: !lambda "return id(blind_stepper).get_speed() > 0 ? COVER_OPERATION_CLOSING : COVER_OPERATION_OPENING;"
+
+  # Generic script to track the state while the cover is moving. Used by cover open, close, position and stop actions
+  - id: monitor_cover_movement
+    then:
+      # 1) Set the cover state based on the direction of the stepper
+      - script.execute: publish_cover_state
+      # 2) While the stepper is moving, poll the position and update the cover
+      - while:
+          condition:
+            lambda: return !id(blind_stepper).has_reached_target();
+          then:
+            # - script.execute: publish_cover_position
+            - delay: 100 ms
+      # 3) Update the cover position once the motor stops
+      - script.execute: publish_cover_position
+      # 4) Record the stepper position to non-volitile memory
+      - script.execute: record_stepper_position
+      # 5) publish the state as idle
+      - cover.template.publish:
+          id: blind_cover
+          current_operation: IDLE
+      
+        
+logger:
+  level: VERBOSE
+
+spi:
+  clk_pin: GPIO18
+  mosi_pin: GPIO23
+  miso_pin: GPIO19
+
+globals:
+  - id: open_position
+    type: int
+    initial_value: '0'
+  - id: closed_position
+    type: int
+    initial_value: '7000'
+  - id: saved_position
+    type: int
+    initial_value: '1000'
+    restore_value: true
+  
+stepper:
+  - platform: tmc5160
+    id: blind_stepper
+    cs_pin: GPIO5
+    sleep_pin: GPIO14
+    reset_pin: GPIO16
+
+    current_resistor: 0.075ohm
+    # motor_current: 1.68A
+    motor_current: 1.68A
+    motor_hold_power: 30%
+
+    max_speed: 500
+    acceleration: 200
+    deceleration: 200
+
+    # direction: reversed
+
+
+
+cover:
+- platform: template
+  id: "blind_cover"
+  device_class: blind
+  name: $friendly_name
+  has_position: true
+  optimistic: false
+  open_action:
+    - logger.log: "Opening"
+    - stepper.set_target:
+        id: blind_stepper
+        target: !lambda "return id(open_position);"
+    - script.execute: monitor_cover_movement
+  close_action:
+    - logger.log: "Closing"
+    - stepper.set_target:
+        id: blind_stepper
+        target: !lambda "return id(closed_position);"
+    - script.execute: monitor_cover_movement
+  position_action:
+    - logger.log: "Setting position"
+    - stepper.set_target:
+        id: blind_stepper
+        target: !lambda "return (float(pos) * float( float(id(open_position)) - float(id(closed_position)) )) + float(id(closed_position));"
+    - script.execute: monitor_cover_movement
+  stop_action:
+    - logger.log: "Stopping"
+    - lambda: "id(blind_stepper).stop();"
+    - script.execute: monitor_cover_movement
+
+sensor:
+  - platform: template
+    id: ${node_name}_current_position
+    name: ${friendly_name} Current position
+    lambda: return id(blind_stepper).current_position;
+    update_interval: never
+  - platform: template
+    id: ${node_name}_closed_position
+    name: ${friendly_name} Closed position
+    lambda: return id(closed_position);
+    update_interval: never
+
+
+  - platform: uptime
+    name: Uptime Sensor
