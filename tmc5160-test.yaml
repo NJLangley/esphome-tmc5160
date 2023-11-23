@@ -39,6 +39,7 @@ api:
   # encryption:
   #   key: !secret ha_api_key
   services:
+    # This is the service to tell the stepper where to move to
     - service: set_stepper_target
       variables:
         target: int
@@ -48,15 +49,43 @@ api:
             target: !lambda "return target;"
         - script.execute: monitor_cover_movement
     
+    # This service changes the current position without moving the stepper. Allows fine tuning the position of the blind
     - service: set_stepper_position
       variables:
         position: int
       then:
-        - script.execute: 
-            id: set_stepper_position
-            position: !lambda "return position;"
-        - script.execute: publish_cover_position
-        - script.execute: publish_cover_state
+        - if:
+            condition:
+              lambda: return id(blind_stepper).get_is_driver_enabled();
+            then:
+              - homeassistant.service:
+                  service: system_log.write
+                  data:
+                    message: "Service set_stepper_position is not available while the blind motor is moving. Please try again once the blind has stopped."
+                    logger: esphome.tmc5160
+                    level: error
+            else:
+              - script.execute: 
+                  id: set_stepper_position
+                  position: !lambda "return position;"
+              - script.execute: publish_cover_position
+              - script.execute: publish_cover_state
+
+
+    - service: log_message
+      variables:
+        message: string
+      then:
+# !lambda "return id(blind_stepper).set_position(position) > 0;"
+        - lambda: >-
+            static const char *const TAG = "tmc5160.stepper";
+            ESP_LOGI(TAG, "service call: log_message: %s", message);
+        - homeassistant.service:
+            service: system_log.write
+            data:
+              message: !lambda "return \"service call: log_message: \" + message;"
+              logger: esphome.tmc5160
+              level: error
         
 
 script:
@@ -65,6 +94,7 @@ script:
       - globals.set:
           id: saved_position
           value: !lambda "return id(blind_stepper).current_position;"
+  
   - id: set_stepper_position
     parameters:
       position: int
@@ -105,7 +135,7 @@ script:
           condition:
             lambda: return !id(blind_stepper).has_reached_target();
           then:
-            - script.execute: publish_cover_position
+            # - script.execute: publish_cover_position
             - delay: 100 ms
       # 3) Update the cover position once the motor stops
       - script.execute: publish_cover_position
@@ -185,7 +215,7 @@ cover:
   stop_action:
     - logger.log: "Stopping"
     - lambda: "id(blind_stepper).stop();"
-    # - script.execute: monitor_cover_movement
+    - script.execute: monitor_cover_movement
 
 sensor:
   - platform: template

@@ -26,7 +26,7 @@ class TMC5160_Stepper : public stepper::Stepper, public Component {
   void stop();
   void set_position(float position);
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
-  
+  bool get_is_driver_enabled() { return is_driver_enabled_; }
   void on_update_speed() override;
 
  protected:
@@ -38,6 +38,7 @@ class TMC5160_Stepper : public stepper::Stepper, public Component {
   float motor_current_ = 0;
   float motor_hold_power_ = 0;
   bool motor_direction_reversed_ = false;
+  bool is_checking_motor_stopped_ = false;
   bool is_driver_enabled_;
   TMC5160_SPI* motor;
   TMC5160::MotorParameters motor_params_;

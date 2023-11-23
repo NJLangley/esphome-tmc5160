@@ -34,8 +34,8 @@ void TMC5160_Stepper::setup() {
   // This sets the motor & driver parameters /!\ run the configWizard for your driver and motor for fine tuning !
   TMC5160::PowerStageParameters powerStageParams; // defaults.
   TMC5160::MotorParameters* motorParams = &this->motor_params_;
+  
   // TODO: These should be mandatory settings on the YAML
-
   float maxRmsCurrent = 0.33 / (this->current_resistor_ * sqrt(2.0));
   motorParams->globalScaler = constrain(floor(this->motor_current_ * 256.0 / maxRmsCurrent), 32, 256);
   motorParams->irun = constrain(floor(this->motor_current_ * 31.0 / (maxRmsCurrent * (float)motorParams->globalScaler / 256.0)), 0, 31);
@@ -55,6 +55,7 @@ void TMC5160_Stepper::setup() {
   motor->setMaxSpeed(this->max_speed_);
   motor->setAcceleration(this->acceleration_);
 
+  ESP_LOGD(TAG, "DELAY A");
   delay(1000); // Standstill for automatic tuning
 
   this->dump_config();
@@ -85,6 +86,7 @@ void TMC5160_Stepper::reset_driver()
     ESP_LOGCONFIG(TAG, "Resetting TMC5160...");
     this->reset_pin_->setup();
     this->reset_pin_->digital_write(false); // Set to low to reset the TMC5160
+    ESP_LOGD(TAG, "DELAY B");
     delay(100);
     this->reset_pin_->digital_write(true); // Set to high to power the TMC5160
   }
@@ -93,11 +95,20 @@ void TMC5160_Stepper::reset_driver()
 
 // Set initial position, or reset position if needed
 void TMC5160_Stepper::set_position(float position) {
-  if (this->motor->getCurrentSpeed() > 0)
-    motor->stop();
+  ESP_LOGD(TAG, "TMC5160_Stepper::set_position()");
 
-  while(this->motor->getCurrentSpeed() > 0)
-    delay(100);
+  // if (this->motor->getCurrentSpeed() > 0)
+  //   motor->stop();
+
+  // while(this->motor->getCurrentSpeed() > 0) {
+  //   ESP_LOGD(TAG, "DELAY C");
+  //   delay(100);
+  // }
+
+  if (this->is_driver_enabled_){
+    ESP_LOGE(TAG, "Cannot call set_position() while the motor is moving. Wait for it to stop and try again.");
+    return;
+  }
 
   this->current_position = position;
   this->motor->setCurrentPosition(position);
@@ -109,13 +120,14 @@ void TMC5160_Stepper::set_position(float position) {
 
 void TMC5160_Stepper::enable_driver(bool state)
 {
-  ESP_LOGD(TAG, "enable_driver::state=%s", state ? "True" : "False");
+  ESP_LOGD(TAG, "TMC5160_Stepper::enable_driver(%s)", state ? "On" : "Off");
+
   if (this->sleep_pin_ != nullptr) {
     this->sleep_pin_->digital_write(!state); // Active low
-    ESP_LOGD(TAG, "enable_driver::setting driver to =%s", !state ? "On" : "Off");  // Active low
+    ESP_LOGD(TAG, "enable_driver::setting driver state to %s", state ? "On" : "Off");  // Active low
   }
   this->is_driver_enabled_ = state;
-  ESP_LOGD(TAG, "enable_driver::this->is_driver_enabled_=%s", this->is_driver_enabled_ ? "True" : "False");
+  ESP_LOGD(TAG, "enable_driver::this->is_driver_enabled_=%s", this->is_driver_enabled_ ? "On" : "Off");
 }
 
 void TMC5160_Stepper::on_update_speed() {
@@ -124,6 +136,8 @@ void TMC5160_Stepper::on_update_speed() {
 
 
 void TMC5160_Stepper::stop() {
+  ESP_LOGD(TAG, "TMC5160_Stepper::stop()");
+  
   ESP_LOGCONFIG(TAG, "Stopping driver");
   should_stop_ = true;
 }
@@ -139,27 +153,37 @@ void TMC5160_Stepper::loop() {
                           (this->current_position < this->target_position && this->current_speed_ < 0);
 
   // If we have reached the target, disable the driver if the pin is set. Otherwise the driver will use the hold current
-  if (at_target && this->is_driver_enabled_)
+  if (at_target && this->is_driver_enabled_){
+    ESP_LOGD(TAG, "TMC5160_Stepper::loop() - Disable driver, motor has stopped");
     this->enable_driver(false);
+  }
   // If the stop flag is set, call stop
   else if (this->should_stop_){
-    ESP_LOGCONFIG(TAG, "Stopping driver");
+    ESP_LOGD(TAG, "TMC5160_Stepper::loop() - Sending driver stop command");
     this->motor->stop();
     should_stop_ = false;
     is_stopping_ = true;
   }
   // If we are waiting for the motor to stop, check if it has
   else if (this->is_stopping_){
+    // Stop loads of duplicate logs while we wait for the motor to decelerate and stop.
+    if (!this->is_checking_motor_stopped_){
+      this->is_checking_motor_stopped_ = true;
+      ESP_LOGD(TAG, "TMC5160_Stepper::loop() - Checking motor has stopped");
+    }
+
     if (this->current_speed_ == 0){
-      ESP_LOGCONFIG(TAG, "Stopped, set target to currect position");
+      ESP_LOGD(TAG, "TMC5160_Stepper::loop() - Motor now stopped, setting stopped position as target");
       float stopped_position = motor->getCurrentPosition();
       this->motor->setTargetPosition(stopped_position);
       this->target_position = stopped_position;
       this->is_stopping_ = false;
+      this->is_checking_motor_stopped_ = false;
     }
   }
   // Otherwise if the direction is wrong, or the motor is not moving and not at the target, update the driver target
   else if (change_direction || (this->current_speed_ == 0 && !at_target)){
+    ESP_LOGD(TAG, "TMC5160_Stepper::loop() - Sending driver target position, speed and acceleration to start motor");
     // Acceleration is not change by an event handler like the speed, so update it any time we start a movement
     motor->setMaxSpeed(this->max_speed_);
     motor->setAcceleration(this->acceleration_);
