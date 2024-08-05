@@ -155,7 +155,7 @@ void TMC5160_Stepper::loop() {
   // If we have reached the target, disable the driver if the pin is set. Otherwise the driver will use the hold current
   if (at_target && this->is_driver_enabled_){
     ESP_LOGD(TAG, "TMC5160_Stepper::loop() - Disable driver, motor has stopped");
-    this->enable_driver(false);
+    this->enable_driver(false);  // This should be either behind a flag or handled in the yaml so that it is implementation agnostic
   }
   // If the stop flag is set, call stop
   else if (this->should_stop_){

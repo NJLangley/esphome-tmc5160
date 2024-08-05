@@ -1,16 +1,16 @@
 wifi:
   ssid: ${wifi_ssid}
   password: ${wifi_password}
+  
+  # Optional manual IP
+  manual_ip:
+    static_ip: ${wifi_static_ip}
+    gateway: ${wifi_gateway}
+    subnet: 255.255.255.0
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
     ssid: "{$node_name}-test"
     password: "password"
-
-    # Optional manual IP
-    manual_ip:
-      static_ip: ${wifi_static_ip}
-      gateway: ${wifi_gateway}
-      subnet: 255.255.255.0
 
 captive_portal:
