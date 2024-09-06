@@ -10,6 +10,7 @@ namespace tmc5160 {
 
 // Can't be called TMC5160, as that's the name of the library we use to 
 // talk to the driver using SPI
+// https://github.com/esphome/esphome/blob/dev/esphome/components/stepper/stepper.h
 class TMC5160_Stepper : public stepper::Stepper, public Component {
  public:
   void set_cs_pin(InternalGPIOPin *cs_pin) { cs_pin_ = cs_pin; }
