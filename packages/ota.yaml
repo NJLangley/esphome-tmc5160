@@ -1,4 +1,5 @@
 ota:
+  platform: esphome
   password: ${ota_password}
   on_begin:
     then:
