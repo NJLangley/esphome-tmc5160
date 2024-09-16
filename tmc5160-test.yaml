@@ -154,14 +154,19 @@ script:
   - id: publish_cover_state
     then:
       - lambda: |-
+          CoverOperation current_operation = id(blind_cover).current_operation;
           if (id(blind_stepper).has_reached_target())
-            id(blind_cover).current_operation = COVER_OPERATION_IDLE;
+            current_operation = COVER_OPERATION_IDLE;
           else if (id(blind_stepper).get_speed() > 0)
-            id(blind_cover).current_operation = COVER_OPERATION_CLOSING;
+            current_operation = COVER_OPERATION_CLOSING;
           else if (id(blind_stepper).get_speed() < 0)
-            id(blind_cover).current_operation = COVER_OPERATION_OPENING;
+            current_operation = COVER_OPERATION_OPENING;
           
-          id(blind_cover).publish_state();
+          // Only publish the state if it actually changed
+          if (current_operation != id(blind_cover).current_operation){
+            id(blind_cover).current_operation = current_operation;
+            id(blind_cover).publish_state();
+          }
 
   # Generic script to track the state while the cover is moving. Used by cover open, close, position and stop actions
   - id: monitor_cover_movement
