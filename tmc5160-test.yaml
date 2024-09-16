@@ -153,35 +153,32 @@ script:
 
   - id: publish_cover_state
     then:
-      - if:
-          condition:
-            lambda: return id(blind_stepper).has_reached_target();
-          then:
-            - cover.template.publish:
-                id: blind_cover
-                current_operation: IDLE
-          else:
-            - cover.template.publish:
-                id: blind_cover
-                current_operation: !lambda "return id(blind_stepper).get_speed() > 0 ? COVER_OPERATION_CLOSING : COVER_OPERATION_OPENING;"
+      - lambda: |-
+          if (id(blind_stepper).has_reached_target())
+            id(blind_cover).current_operation = COVER_OPERATION_IDLE;
+          else if (id(blind_stepper).get_speed() > 0)
+            id(blind_cover).current_operation = COVER_OPERATION_CLOSING;
+          else if (id(blind_stepper).get_speed() < 0)
+            id(blind_cover).current_operation = COVER_OPERATION_OPENING;
+          
+          id(blind_cover).publish_state();
 
   # Generic script to track the state while the cover is moving. Used by cover open, close, position and stop actions
   - id: monitor_cover_movement
     then:
-      # 1) Set the cover state based on the direction of the stepper
-      - script.execute: publish_cover_state
-      # 2) While the stepper is moving, poll the position and update the cover
+      # 1) While the stepper is moving, poll the position and update the cover
       - while:
           condition:
             lambda: return !id(blind_stepper).has_reached_target();
           then:
             # - script.execute: publish_cover_position
-            - delay: 100 ms
-      # 3) Update the cover position once the motor stops
+            - script.execute: publish_cover_state
+            - delay: 250 ms
+      # 2) Update the cover position once the motor stops
       - script.execute: publish_cover_position
-      # 4) Record the stepper position to non-volitile memory
+      # 3) Record the stepper position to non-volitile memory
       - script.execute: record_stepper_position
-      # 5) publish the state as idle
+      # 4) publish the state as idle
       - cover.template.publish:
           id: blind_cover
           current_operation: IDLE
@@ -249,7 +246,7 @@ stepper:
 
 cover:
 - platform: template
-  id: "blind_cover"
+  id: blind_cover
   device_class: blind
   name: $friendly_name
   has_position: true

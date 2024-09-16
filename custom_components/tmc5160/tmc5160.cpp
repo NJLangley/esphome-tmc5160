@@ -198,9 +198,6 @@ void TMC5160_Stepper::loop() {
       this->enable_driver(true);
   }
 
-
-
-
   uint32_t now = millis();
   static unsigned long t_echo;
   const int seconds = 60;
