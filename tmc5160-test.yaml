@@ -1,21 +1,23 @@
 # this configuration file has all empty custom stepper set up.
 # use 'esphome tmc5160_test.yaml compile' to build.
 substitutions:
-  device_name: lounge-window-blind
-  platform: ESP8266
-  board: d1_mini
-  friendly_name: Lounge Window Blind
-  node_name: lounge_window_blind
-  wifi_static_ip: !secret wifi_static_ip_lounge_window_blind
-  closed_position: '8000'
-
-  # device_name: dining-window-blind
+  # device_name: lounge-window-blind
   # platform: ESP8266
   # board: d1_mini
-  # friendly_name: Dining Window Blind
-  # node_name: dining_window_blind
-  # wifi_static_ip: !secret wifi_static_ip_dining_window_blind
+  # friendly_name: Lounge Window Blind
+  # node_name: lounge_window_blind
+  # wifi_static_ip: !secret wifi_static_ip_lounge_window_blind
   # closed_position: '8000'
+  # opening_clutch_backlash_adjustment: '25'
+
+  device_name: dining-window-blind
+  platform: ESP8266
+  board: d1_mini
+  friendly_name: Dining Window Blind
+  node_name: dining_window_blind
+  wifi_static_ip: !secret wifi_static_ip_dining_window_blind
+  closed_position: '8000'
+  opening_clutch_backlash_adjustment: '10'
 
   # device_name: kitchen-window-blind
   # platform: ESP8266
@@ -24,6 +26,7 @@ substitutions:
   # node_name: kitchen_window_blind
   # wifi_static_ip: !secret wifi_static_ip_kitchen_window_blind
   # closed_position: '8000'
+  # opening_clutch_backlash_adjustment: '0'
 
   # device_name: office-window-blind
   # platform: ESP8266
@@ -32,6 +35,7 @@ substitutions:
   # node_name: office_window_blind
   # wifi_static_ip: !secret wifi_static_ip_office_window_blind
   # closed_position: '4400'
+  # opening_clutch_backlash_adjustment: '0'
 
   # device_name: gym-window-blind
   # platform: ESP8266
@@ -40,6 +44,7 @@ substitutions:
   # node_name: gym_window_blind
   # wifi_static_ip: !secret wifi_static_ip_gym_window_blind
   # closed_position: '4400'
+  # opening_clutch_backlash_adjustment: '0'
 
   
   # Can't reference secrets from YAML's in the packages folder, so use substitutions instead
@@ -74,6 +79,15 @@ esphome:
         - sensor.template.publish:
             id: ${node_name}_closed_position
             state: !lambda return id(closed_position);
+        - sensor.template.publish:
+            id: ${node_name}_closing_counter
+            state: !lambda return id(closing_counter);
+        - sensor.template.publish:
+            id: ${node_name}_opening_counter
+            state: !lambda return id(opening_counter);
+        - sensor.template.publish:
+            id: ${node_name}_opening_clutch_backlash_adjustment
+            state: !lambda return id(opening_clutch_backlash_adjustment);
 
 api:
   # encryption:
@@ -88,6 +102,16 @@ api:
             id: blind_stepper
             target: !lambda "return target;"
         - script.execute: monitor_cover_movement
+
+    
+    # This is the service to tell the stepper where to move to
+    - service: set_opening_clutch_backlash_adjustment
+      variables:
+        clutch_backlash_adjustment: int
+      then:
+        - lambda: |-
+            id(opening_clutch_backlash_adjustment) = clutch_backlash_adjustment;
+            id(${node_name}_opening_clutch_backlash_adjustment).publish_state(id(opening_counter));
 
     # This service changes the current position without moving the stepper. Allows fine tuning the position of the blind
     - service: set_stepper_position
@@ -110,6 +134,28 @@ api:
                   position: !lambda "return position;"
               - script.execute: publish_cover_position
               - script.execute: publish_cover_state
+
+
+    # This service changes the current position without moving the stepper. Allows fine tuning the position of the blind
+    - service: reset_counters
+      then:
+        - if:
+            condition:
+              lambda: return id(blind_stepper).get_is_driver_enabled();
+            then:
+              - homeassistant.service:
+                  service: system_log.write
+                  data:
+                    message: "Service reset_counters is not available while the blind motor is moving. Please try again once the blind has stopped."
+                    logger: esphome.tmc5160
+                    level: error
+            else:
+              - lambda: |-
+                  id(opening_counter) = 0;
+                  id(${node_name}_opening_counter).publish_state(id(opening_counter));
+
+                  id(closing_counter) = 0;
+                  id(${node_name}_closing_counter).publish_state(id(closing_counter));
 
 
     - service: log_message
@@ -155,17 +201,23 @@ script:
     then:
       - lambda: |-
           CoverOperation current_operation = id(blind_cover).current_operation;
-          if (id(blind_stepper).has_reached_target())
-            current_operation = COVER_OPERATION_IDLE;
-          else if (id(blind_stepper).get_speed() > 0)
-            current_operation = COVER_OPERATION_CLOSING;
-          else if (id(blind_stepper).get_speed() < 0)
-            current_operation = COVER_OPERATION_OPENING;
-          
-          // Only publish the state if it actually changed
-          if (current_operation != id(blind_cover).current_operation){
-            id(blind_cover).current_operation = current_operation;
+          if (id(blind_stepper).has_reached_target() && id(blind_cover).current_operation != COVER_OPERATION_IDLE) {
+            id(blind_cover).current_operation = COVER_OPERATION_IDLE;
             id(blind_cover).publish_state();
+          }
+          else if (id(blind_stepper).get_speed() > 0 && id(blind_cover).current_operation != COVER_OPERATION_CLOSING) {
+            id(blind_cover).current_operation = COVER_OPERATION_CLOSING;
+            id(blind_cover).publish_state();\
+
+            id(closing_counter)++;
+            id(${node_name}_closing_counter).publish_state(id(closing_counter));
+          }
+          else if (id(blind_stepper).get_speed() < 0 && id(blind_cover).current_operation != COVER_OPERATION_OPENING) {
+            id(blind_cover).current_operation = COVER_OPERATION_OPENING;
+            id(blind_cover).publish_state();
+
+            id(opening_counter)++;
+            id(${node_name}_opening_counter).publish_state(id(opening_counter));
           }
 
   # Generic script to track the state while the cover is moving. Used by cover open, close, position and stop actions
@@ -204,13 +256,20 @@ globals:
     type: int
     initial_value: '0'
     restore_value: true
-  - id: raise_counter
+  - id: opening_counter
     type: int
     initial_value: '0'
     restore_value: true
-  - id: lower_counter
+  - id: closing_counter
     type: int
     initial_value: '0'
+    restore_value: true
+  - id: new_target_pos
+    type: int
+    initial_value: '0'
+  - id: opening_clutch_backlash_adjustment
+    type: int
+    initial_value: ${opening_clutch_backlash_adjustment}
     restore_value: true
 
 spi:
@@ -258,6 +317,14 @@ cover:
   optimistic: false
   open_action:
     - logger.log: "Opening"
+    - if:
+        # If the blind is not moving, we adjust the position a little before setting the target
+        condition:
+          lambda: return !id(blind_stepper).get_is_driver_enabled();
+        then:
+          lambda: |-
+            int adjusted_pos = id(blind_stepper).current_position + 25;
+            id(blind_stepper).set_position(adjusted_pos);
     - stepper.set_target:
         id: blind_stepper
         target: !lambda "return id(open_position);"
@@ -270,9 +337,27 @@ cover:
     - script.execute: monitor_cover_movement
   position_action:
     - logger.log: "Setting position"
+    # The new position is a percentage of the open / closed extemities, adjusted for if either one is non-zero
+    - lambda: "id(new_target_pos) = (float(pos) * float( float(id(open_position)) - float(id(closed_position)) )) + float(id(closed_position));"
+    - if:
+        # If the blind is not moving, we adjust the position a little before setting the target
+        condition:
+          lambda: return !id(blind_stepper).get_is_driver_enabled();
+        then:
+          - if: # Opening
+              condition: 
+                lambda: "return id(new_target_pos) < id(blind_stepper).current_position;"
+              then:
+                - logger.log: "Adjusting target for clutch backlash"
+                - lambda: |-
+                    int adjusted_pos = id(blind_stepper).current_position + id(opening_clutch_backlash_adjustment);
+                    id(blind_stepper).set_position(adjusted_pos);
+              # else: # Closing
+              #   lambda: "id(blind_stepper);"
+
     - stepper.set_target:
         id: blind_stepper
-        target: !lambda "return (float(pos) * float( float(id(open_position)) - float(id(closed_position)) )) + float(id(closed_position));"
+        target: !lambda "return id(new_target_pos);"
     - script.execute: monitor_cover_movement
   stop_action:
     - logger.log: "Stopping"
@@ -294,3 +379,21 @@ sensor:
 
   - platform: uptime
     name: Uptime Sensor
+
+  - platform: template
+    id: ${node_name}_opening_counter
+    name: ${friendly_name} Opening Counter
+    lambda: return id(opening_counter);
+    update_interval: never
+
+  - platform: template
+    id: ${node_name}_closing_counter
+    name: ${friendly_name} Closing Counter
+    lambda: return id(closing_counter);
+    update_interval: never
+
+  - platform: template
+    id: ${node_name}_opening_clutch_backlash_adjustment
+    name: ${friendly_name} Opening Clutch Backlash Adjustment
+    lambda: return id(opening_clutch_backlash_adjustment);
+    update_interval: never
