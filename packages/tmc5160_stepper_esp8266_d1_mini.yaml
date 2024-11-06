@@ -7,7 +7,7 @@ defaults:
   motor_acceleration: '200'
   motor_deceleration: '200'
   motor_direction: normal # or reversed
-  
+
   SPI_CLK_PIN: GPIO14
   SPI_MOSI_PIN: GPIO13
   SPI_MISO_PIN: GPIO12
