@@ -1,0 +1,283 @@
+defaults:
+  motor_id: tmc_stepper
+
+esphome:
+    on_boot:
+      then:
+        - script.execute: 
+            id: set_stepper_position
+            position: !lambda "return id(saved_position);"
+        - script.execute: publish_cover_position
+        - sensor.template.publish:
+            id: ${node_name}_closed_position
+            state: !lambda return id(closed_position);
+        - sensor.template.publish:
+            id: ${node_name}_closing_counter
+            state: !lambda return id(closing_counter);
+        - sensor.template.publish:
+            id: ${node_name}_opening_counter
+            state: !lambda return id(opening_counter);
+        - sensor.template.publish:
+            id: ${node_name}_opening_clutch_backlash_adjustment
+            state: !lambda return id(opening_clutch_backlash_adjustment);
+
+api:
+  # encryption:
+  #   key: !secret ha_api_key
+  services:
+    # This is the service to tell the stepper where to move to
+    - service: set_stepper_target
+      variables:
+        target: int
+      then:
+        - stepper.set_target:
+            id: ${motor_id}
+            target: !lambda "return target;"
+        - script.execute: monitor_cover_movement
+
+    # This is the service to tell the stepper where to move to
+    - service: set_opening_clutch_backlash_adjustment
+      variables:
+        clutch_backlash_adjustment: int
+      then:
+        - lambda: |-
+            id(opening_clutch_backlash_adjustment) = clutch_backlash_adjustment;
+            id(${node_name}_opening_clutch_backlash_adjustment).publish_state(id(opening_counter));
+
+    # This service changes the current position without moving the stepper. Allows fine tuning the position of the blind
+    - service: set_stepper_position
+      variables:
+        position: int
+      then:
+        - if:
+            condition:
+              lambda: return id(${motor_id}).get_is_driver_enabled();
+            then:
+              - homeassistant.service:
+                  service: system_log.write
+                  data:
+                    message: "Service set_stepper_position is not available while the blind motor is moving. Please try again once the blind has stopped."
+                    logger: esphome.tmc5160
+                    level: error
+            else:
+              - script.execute: 
+                  id: set_stepper_position
+                  position: !lambda "return position;"
+              - script.execute: publish_cover_position
+              - script.execute: publish_cover_state
+
+    # This service changes the current position without moving the stepper. Allows fine tuning the position of the blind
+    - service: reset_counters
+      then:
+        - if:
+            condition:
+              lambda: return id(${motor_id}).get_is_driver_enabled();
+            then:
+              - homeassistant.service:
+                  service: system_log.write
+                  data:
+                    message: "Service reset_counters is not available while the blind motor is moving. Please try again once the blind has stopped."
+                    logger: esphome.tmc5160
+                    level: error
+            else:
+              - lambda: |-
+                  id(opening_counter) = 0;
+                  id(${node_name}_opening_counter).publish_state(id(opening_counter));
+
+                  id(closing_counter) = 0;
+                  id(${node_name}_closing_counter).publish_state(id(closing_counter));
+
+    # Helper for testing logging
+    - service: log_message
+      variables:
+        message: string
+      then:
+        - lambda: >-
+            static const char *const TAG = "tmc5160.stepper";
+            ESP_LOGI(TAG, "service call: log_message: %s", message);
+        - homeassistant.service:
+            service: system_log.write
+            data:
+              message: !lambda "return \"service call: log_message: \" + message;"
+              logger: esphome.tmc5160
+              level: error
+        
+script:
+  - id: record_stepper_position
+    then:
+      - globals.set:
+          id: saved_position
+          value: !lambda "return id(${motor_id}).current_position;"
+  
+  - id: set_stepper_position
+    parameters:
+      position: int
+    then:
+      - lambda: "id(${motor_id}).set_position(position);"
+      - script.execute: record_stepper_position
+
+  - id: publish_cover_position
+    then:
+      - cover.template.publish:
+          id: blind_cover
+          position: !lambda return float( float(id(${motor_id}).current_position) - float(id(closed_position))) / float( float(id(open_position)) - float(id(closed_position)) );
+      - sensor.template.publish:
+          id: ${node_name}_current_position
+          state: !lambda return id(${motor_id}).current_position;
+
+  - id: publish_cover_state
+    then:
+      - lambda: |-
+          CoverOperation current_operation = id(blind_cover).current_operation;
+          if (id(${motor_id}).has_reached_target() && id(blind_cover).current_operation != COVER_OPERATION_IDLE) {
+            id(blind_cover).current_operation = COVER_OPERATION_IDLE;
+            id(blind_cover).publish_state();
+          }
+          else if (id(${motor_id}).get_speed() > 0 && id(blind_cover).current_operation != COVER_OPERATION_CLOSING) {
+            id(blind_cover).current_operation = COVER_OPERATION_CLOSING;
+            id(blind_cover).publish_state();\
+
+            id(closing_counter)++;
+            id(${node_name}_closing_counter).publish_state(id(closing_counter));
+          }
+          else if (id(${motor_id}).get_speed() < 0 && id(blind_cover).current_operation != COVER_OPERATION_OPENING) {
+            id(blind_cover).current_operation = COVER_OPERATION_OPENING;
+            id(blind_cover).publish_state();
+
+            id(opening_counter)++;
+            id(${node_name}_opening_counter).publish_state(id(opening_counter));
+          }
+
+  # Generic script to track the state while the cover is moving. Used by cover open, close, position and stop actions
+  - id: monitor_cover_movement
+    then:
+      # 1) While the stepper is moving, poll the position and update the cover
+      - while:
+          condition:
+            lambda: return !id(${motor_id}).has_reached_target();
+          then:
+            # - script.execute: publish_cover_position
+            - script.execute: publish_cover_state
+            - delay: 250 ms
+      # 2) Update the cover position once the motor stops
+      - script.execute: publish_cover_position
+      # 3) Record the stepper position to non-volitile memory
+      - script.execute: record_stepper_position
+      # 4) publish the state as idle
+      - cover.template.publish:
+          id: blind_cover
+          current_operation: IDLE
+      
+globals:
+  - id: open_position
+    type: int
+    initial_value: '0'
+  - id: closed_position
+    type: int
+    initial_value: ${closed_position}
+  - id: saved_position
+    type: int
+    initial_value: '0'
+    restore_value: true
+  - id: opening_counter
+    type: int
+    initial_value: '0'
+    restore_value: true
+  - id: closing_counter
+    type: int
+    initial_value: '0'
+    restore_value: true
+  - id: new_target_pos
+    type: int
+    initial_value: '0'
+  - id: opening_clutch_backlash_adjustment
+    type: int
+    initial_value: ${opening_clutch_backlash_adjustment}
+    restore_value: true
+
+cover:
+- platform: template
+  id: blind_cover
+  device_class: blind
+  name: $friendly_name
+  has_position: true
+  optimistic: false
+  open_action:
+    - logger.log: "Opening"
+    - if:
+        # If the blind is not moving, we adjust the position a little before setting the target
+        condition:
+          lambda: return !id(${motor_id}).get_is_driver_enabled();
+        then:
+          lambda: |-
+            int adjusted_pos = id(${motor_id}).current_position + 25;
+            id(${motor_id}).set_position(adjusted_pos);
+    - stepper.set_target:
+        id: ${motor_id}
+        target: !lambda "return id(open_position);"
+    - script.execute: monitor_cover_movement
+  close_action:
+    - logger.log: "Closing"
+    - stepper.set_target:
+        id: ${motor_id}
+        target: !lambda "return id(closed_position);"
+    - script.execute: monitor_cover_movement
+  position_action:
+    - logger.log: "Setting position"
+    # The new position is a percentage of the open / closed extemities, adjusted for if either one is non-zero
+    - lambda: "id(new_target_pos) = (float(pos) * float( float(id(open_position)) - float(id(closed_position)) )) + float(id(closed_position));"
+    - if:
+        # If the blind is not moving, we adjust the position a little before setting the target
+        condition:
+          lambda: return !id(${motor_id}).get_is_driver_enabled();
+        then:
+          - if: # Opening
+              condition: 
+                lambda: "return id(new_target_pos) < id(${motor_id}).current_position;"
+              then:
+                - logger.log: "Adjusting target for clutch backlash"
+                - lambda: |-
+                    int adjusted_pos = id(${motor_id}).current_position + id(opening_clutch_backlash_adjustment);
+                    id(${motor_id}).set_position(adjusted_pos);
+              # else: # Closing
+              #   lambda: "id(${motor_id});"
+
+    - stepper.set_target:
+        id: ${motor_id}
+        target: !lambda "return id(new_target_pos);"
+    - script.execute: monitor_cover_movement
+  stop_action:
+    - logger.log: "Stopping"
+    - lambda: "id(${motor_id}).stop();"
+    - script.execute: monitor_cover_movement
+
+sensor:
+  - platform: template
+    id: ${node_name}_current_position
+    name: ${friendly_name} Current position
+    lambda: return id(${motor_id}).current_position;
+    update_interval: never
+
+  - platform: template
+    id: ${node_name}_closed_position
+    name: ${friendly_name} Closed position
+    lambda: return id(closed_position);
+    update_interval: never
+
+  - platform: template
+    id: ${node_name}_opening_counter
+    name: ${friendly_name} Opening Counter
+    lambda: return id(opening_counter);
+    update_interval: never
+
+  - platform: template
+    id: ${node_name}_closing_counter
+    name: ${friendly_name} Closing Counter
+    lambda: return id(closing_counter);
+    update_interval: never
+
+  - platform: template
+    id: ${node_name}_opening_clutch_backlash_adjustment
+    name: ${friendly_name} Opening Clutch Backlash Adjustment
+    lambda: return id(opening_clutch_backlash_adjustment);
+    update_interval: never

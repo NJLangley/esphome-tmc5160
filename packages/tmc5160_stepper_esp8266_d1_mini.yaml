@@ -1,0 +1,44 @@
+defaults:
+  motor_id: tmc_stepper
+  motor_current_resistor: 0.075ohm
+  motor_motor_current: 1.68A
+  motor_motor_hold_power: 30%
+  motor_max_speed: '500'
+  motor_acceleration: '200'
+  motor_deceleration: '200'
+  motor_direction: normal # or reversed
+
+  SPI_CLK_PIN: GPIO14
+  SPI_MOSI_PIN: GPIO13
+  SPI_MISO_PIN: GPIO12
+  
+  TMC_CS_PIN: GPIO15
+  TMC_SLEEP_PIN: GPIO04
+  TMC_RESET_PIN: GPIO05
+
+esphome:
+  libraries:
+    # Libraries from PlatformIO
+    - SPI
+    - tommag/TMC5160 # Requires SPI, must be before this in the list
+
+spi:
+  clk_pin: ${SPI_CLK_PIN}
+  mosi_pin: ${SPI_MOSI_PIN}
+  miso_pin: ${SPI_MISO_PIN}
+  
+stepper:
+  - platform: tmc5160
+    id: ${motor_id}
+    
+    cs_pin: ${TMC_CS_PIN}
+    sleep_pin: ${TMC_SLEEP_PIN}
+    reset_pin: ${TMC_RESET_PIN}
+
+    current_resistor: ${motor_current_resistor}
+    motor_current: ${motor_motor_current}
+    motor_hold_power: ${motor_motor_hold_power}
+    max_speed: ${motor_max_speed}
+    acceleration: ${motor_acceleration}
+    deceleration: ${motor_deceleration}
+    direction: ${motor_direction}

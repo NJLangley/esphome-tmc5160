@@ -1,0 +1,8 @@
+defaults:
+  platform: ESP32
+  board: az-delivery-devkit-v4
+
+esphome:
+  name: ${device_name}
+  platform: ${platform}
+  board: ${board}

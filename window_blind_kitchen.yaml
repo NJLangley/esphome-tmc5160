@@ -1,0 +1,24 @@
+# use 'esphome window_blind_kitchen.yaml compile' to build.
+substitutions:
+  device_name: kitchen-window-blind
+  friendly_name: Kitchen Window Blind
+  node_name: kitchen_window_blind
+  wifi_static_ip: !secret wifi_static_ip_kitchen_window_blind
+  closed_position: '8000'
+  opening_clutch_backlash_adjustment: '0'
+
+packages:
+  # Board specific packages
+  board: !include packages/board_esp8266_d1_mini.yaml
+  stepper: !include packages/tmc5160_stepper_esp8266_d1_mini.yaml
+  
+  # Functionallity packages
+  roller_blind: !include packages/roller_blind.yaml
+  
+  # Boilerplate packages
+  wifi: !include packages/wifi_static_ip.yaml
+  ota: !include packages/ota.yaml
+  uptime_sensor: !include packages/uptime_sensor.yaml
+
+logger:
+  level: VERBOSE

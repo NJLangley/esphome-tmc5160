@@ -61,6 +61,7 @@ void TMC5160_Stepper::setup() {
   this->dump_config();
 }
 
+
 void TMC5160_Stepper::dump_config() {
   ESP_LOGCONFIG(TAG, "TMC5160:");
   LOG_PIN("  SPI Chip Select Pin: ", this->cs_pin_);
@@ -79,6 +80,7 @@ void TMC5160_Stepper::dump_config() {
   
   LOG_STEPPER(this);
 }
+
 
 void TMC5160_Stepper::reset_driver()
 {
@@ -117,7 +119,6 @@ void TMC5160_Stepper::set_position(float position) {
 }
 
 
-
 void TMC5160_Stepper::enable_driver(bool state)
 {
   ESP_LOGD(TAG, "TMC5160_Stepper::enable_driver(%s)", state ? "On" : "Off");
@@ -130,6 +131,7 @@ void TMC5160_Stepper::enable_driver(bool state)
   ESP_LOGD(TAG, "enable_driver::this->is_driver_enabled_=%s", this->is_driver_enabled_ ? "On" : "Off");
 }
 
+
 void TMC5160_Stepper::on_update_speed() {
   this->motor->setMaxSpeed(this->max_speed_);
 }
@@ -141,6 +143,7 @@ void TMC5160_Stepper::stop() {
   ESP_LOGCONFIG(TAG, "Stopping driver");
   should_stop_ = true;
 }
+
 
 void TMC5160_Stepper::loop() {
   bool at_target = this->has_reached_target();
@@ -194,9 +197,6 @@ void TMC5160_Stepper::loop() {
     if (!this->is_driver_enabled_)
       this->enable_driver(true);
   }
-
-
-
 
   uint32_t now = millis();
   static unsigned long t_echo;

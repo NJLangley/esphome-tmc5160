@@ -1,5 +1,6 @@
 ota:
-  password: ${ota_password}
+  platform: esphome
+  password: !secret ota_password
   on_begin:
     then:
       - logger.log: "OTA start"

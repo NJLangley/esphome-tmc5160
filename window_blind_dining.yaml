@@ -1,0 +1,30 @@
+# use 'esphome window_blind_dining.yaml compile' to build.
+substitutions:
+  device_name: dining-window-blind
+  friendly_name: Dining Window Blind
+  node_name: dining_window_blind
+  wifi_static_ip: !secret wifi_static_ip_dining_window_blind
+  closed_position: '8000'
+  opening_clutch_backlash_adjustment: '10'
+  
+packages:
+  # Board specific packages
+  board: !include packages/board_esp8266_d1_mini.yaml
+  stepper: !include
+    file: packages/tmc5160_stepper_esp8266_d1_mini.yaml
+    vars:
+      motor_id: blind_stepper
+  
+  # Functionallity packages
+  roller_blind: !include
+    file: packages/roller_blind.yaml
+    vars:
+      motor_id: blind_stepper
+  
+  # Boilerplate packages
+  wifi: !include packages/wifi_static_ip.yaml
+  ota: !include packages/ota.yaml
+  uptime_sensor: !include packages/uptime_sensor.yaml
+
+logger:
+  level: VERBOSE
