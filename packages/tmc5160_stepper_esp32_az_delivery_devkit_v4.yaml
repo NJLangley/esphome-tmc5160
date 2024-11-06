@@ -1,5 +1,5 @@
 defaults:
-  motor_id: stepper
+  motor_id: tmc_stepper
   motor_current_resistor: 0.075ohm
   motor_motor_current: 1.68A
   motor_motor_hold_power: 30%
