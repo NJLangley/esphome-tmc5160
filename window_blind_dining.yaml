@@ -16,7 +16,10 @@ packages:
       motor_id: blind_stepper
   
   # Functionallity packages
-  roller_blind: !include packages/roller_blind.yaml
+  roller_blind: !include
+    file: packages/roller_blind.yaml
+    vars:
+      motor_id: blind_stepper
   
   # Boilerplate packages
   wifi: !include packages/wifi_static_ip.yaml
