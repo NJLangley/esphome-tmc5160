@@ -1,14 +1,27 @@
+# defaults:
+#   motor_current_resistor: 0.075ohm
+#   motor_motor_current: 1.68A
+#   motor_motor_hold_power: 30%
+#   motor_max_speed: '500'
+#   motor_acceleration: '200'
+#   motor_deceleration: '200'
+#   motor_direction: normal # or reversed
+
 esphome:
-    name: ${device_name}
-    platform: ${platform}
-    board: ${board}
-    esp8266_restore_from_flash: true
+    # name: ${device_name}
+    # platform: ${platform}
+    # board: ${board}
+
+    # TODO: split out the config for the platform into seperate modules for the boards I use, because the 
+    #       esp8266_restore_from_flash options is invalid for esp32. Need a base and a SPI one. Packages 
+    #       will be best as they allow dict merging different bits of the esphomeblock toetheer
+    
 
     # build_path: .build/tmc5160-test
-    libraries:
-      # Libraries from PlatformIO
-      - SPI
-      - tommag/TMC5160 # Requires SPI, must be before this in the list
+    # libraries:
+    #   # Libraries from PlatformIO
+    #   - SPI
+    #   - tommag/TMC5160 # Requires SPI, must be before this in the list
     on_boot: 
       then:
         - script.execute: 
@@ -109,7 +122,6 @@ api:
               logger: esphome.tmc5160
               level: error
         
-
 script:
   - id: record_stepper_position
     then:
@@ -176,7 +188,6 @@ script:
           id: blind_cover
           current_operation: IDLE
       
-
 globals:
   - id: open_position
     type: int
@@ -204,29 +215,26 @@ globals:
     initial_value: ${opening_clutch_backlash_adjustment}
     restore_value: true
 
-
-spi:
-  clk_pin: ${SPI_CLK_PIN}
-  mosi_pin: ${SPI_MOSI_PIN}
-  miso_pin: ${SPI_MISO_PIN}
+# spi:
+#   clk_pin: ${SPI_CLK_PIN}
+#   mosi_pin: ${SPI_MOSI_PIN}
+#   miso_pin: ${SPI_MISO_PIN}
   
-stepper:
-  - platform: tmc5160
-    id: blind_stepper
+# stepper:
+#   - platform: tmc5160
+#     id: blind_stepper
     
-    cs_pin: ${TMC_CS_PIN}
-    sleep_pin: ${TMC_SLEEP_PIN}
-    reset_pin: ${TMC_RESET_PIN}
+#     cs_pin: ${TMC_CS_PIN}
+#     sleep_pin: ${TMC_SLEEP_PIN}
+#     reset_pin: ${TMC_RESET_PIN}
 
-    # TODO: pass as parameters
-    current_resistor: 0.075ohm
-    motor_current: 1.68A
-    motor_hold_power: 30%
-    max_speed: 500
-    acceleration: 200
-    deceleration: 200
-    # direction: reversed
-
+#     current_resistor: ${motor_current_resistor}
+#     motor_current: ${motor_motor_current}
+#     motor_hold_power: ${motor_motor_hold_power}
+#     max_speed: ${motor_max_speed}
+#     acceleration: ${motor_acceleration}
+#     deceleration: ${motor_deceleration}
+#     direction: ${motor_direction}
 
 cover:
 - platform: template
