@@ -4,13 +4,18 @@ substitutions:
   friendly_name: Office Window Blind
   node_name: office_window_blind
   wifi_static_ip: !secret wifi_static_ip_office_window_blind
-  closed_position: '4400'
+  closed_position: '4300'
   opening_clutch_backlash_adjustment: '0'
 
 packages:
   # Board specific packages
   board: !include packages/board_esp8266_d1_mini.yaml
-  stepper: !include packages/tmc5160_stepper_esp8266_d1_mini.yaml
+  stepper: !include
+    file: packages/tmc5160_stepper_esp8266_d1_mini.yaml
+    vars:
+      motor_max_speed: '5000'
+      motor_acceleration: '4000'
+      motor_deceleration: '4000'
   
   # Functionallity packages
   roller_blind: !include packages/roller_blind.yaml

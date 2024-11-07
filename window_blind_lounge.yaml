@@ -10,7 +10,12 @@ substitutions:
 packages:
   # Board specific packages
   board: !include packages/board_esp8266_d1_mini.yaml
-  stepper: !include packages/tmc5160_stepper_esp8266_d1_mini.yaml
+  stepper: !include
+    file: packages/tmc5160_stepper_esp8266_d1_mini.yaml
+    vars:
+      motor_max_speed: '1350'
+      motor_acceleration: '2000'
+      motor_deceleration: '2000'
   
   # Functionallity packages
   roller_blind: !include packages/roller_blind.yaml
