@@ -7,6 +7,7 @@ defaults:
   motor_acceleration: '200'
   motor_deceleration: '200'
   motor_direction: normal # or reversed
+  disable_driver_on_stop: True
 
   SPI_CLK_PIN: GPIO14
   SPI_MOSI_PIN: GPIO13
@@ -42,3 +43,4 @@ stepper:
     acceleration: ${motor_acceleration}
     deceleration: ${motor_deceleration}
     direction: ${motor_direction}
+    disable_driver_on_stop: ${disable_driver_on_stop}
