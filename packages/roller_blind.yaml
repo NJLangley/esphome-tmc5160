@@ -210,7 +210,7 @@ cover:
           lambda: return !id(${motor_id}).get_is_driver_enabled();
         then:
           lambda: |-
-            int adjusted_pos = id(${motor_id}).current_position + 25;
+            int adjusted_pos = id(${motor_id}).current_position + id(opening_clutch_backlash_adjustment);
             id(${motor_id}).set_position(adjusted_pos);
     - stepper.set_target:
         id: ${motor_id}
