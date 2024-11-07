@@ -13,13 +13,12 @@ packages:
   stepper: !include
     file: packages/tmc5160_stepper_esp8266_d1_mini.yaml
     vars:
-      motor_id: blind_stepper
+      motor_max_speed: '1350'
+      motor_acceleration: '2000'
+      motor_deceleration: '2000'
   
   # Functionallity packages
-  roller_blind: !include
-    file: packages/roller_blind.yaml
-    vars:
-      motor_id: blind_stepper
+  roller_blind: !include packages/roller_blind.yaml
   
   # Boilerplate packages
   wifi: !include packages/wifi_static_ip.yaml

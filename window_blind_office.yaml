@@ -13,10 +13,6 @@ packages:
   stepper: !include
     file: packages/tmc5160_stepper_esp8266_d1_mini.yaml
     vars:
-      # motor_max_speed: '2000'
-      # motor_acceleration: '2000'
-      # motor_deceleration: '2000'
-
       motor_max_speed: '5000'
       motor_acceleration: '4000'
       motor_deceleration: '4000'
