@@ -1,9 +1,10 @@
 defaults:
-  platform: ESP8266
+  platform: esp8266
   board: d1_mini
 
 esphome:
   name: ${device_name}
-  platform: ${platform}
+
+${platform}:
   board: ${board}
-  esp8266_restore_from_flash: true
+  restore_from_flash: true

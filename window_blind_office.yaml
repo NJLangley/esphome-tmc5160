@@ -13,9 +13,19 @@ packages:
   stepper: !include
     file: packages/tmc5160_stepper_esp8266_d1_mini.yaml
     vars:
-      motor_max_speed: '5000'
-      motor_acceleration: '4000'
-      motor_deceleration: '4000'
+      # motor_max_speed: '20'
+      # motor_acceleration: '500'
+      # motor_deceleration: '500'
+
+      # Pancake NEMA17
+      motor_max_speed: '2000'
+      motor_acceleration: '1600'
+      motor_deceleration: '1600'
+      
+      # Big NEMA17
+      # motor_max_speed: '5000'
+      # motor_acceleration: '4000'
+      # motor_deceleration: '4000'
   
   # Functionallity packages
   roller_blind: !include packages/roller_blind.yaml

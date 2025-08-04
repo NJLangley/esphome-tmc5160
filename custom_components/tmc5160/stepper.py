@@ -56,7 +56,5 @@ async def to_code(config):
     cg.add(var.set_motor_hold_power(config[CONF_MOTOR_HOLD_POWER]))
     cg.add(var.set_disable_driver_when_stopped(config[CONF_MOTOR_DISABLE_DRIVER_ON_STOP]))
     
-    
-    
     if direction_config := config.get(CONF_DIRECTION):
         cg.add(var.set_motor_direction_reversed(direction_config == CONF_REVERSED))

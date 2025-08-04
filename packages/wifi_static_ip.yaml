@@ -10,8 +10,13 @@ wifi:
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
-    ssid: "{$node_name}-test"
+    ssid: "{$node_name}"
     password: "password"
 
 captive_portal:
 
+sensor:
+  # Send WiFi signal strength
+  - platform: wifi_signal
+    name: $friendly_name WiFi Strength
+    update_interval: 60s

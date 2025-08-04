@@ -188,10 +188,16 @@ void TMC5160_Stepper::loop() {
   // Otherwise if the direction is wrong, or the motor is not moving and not at the target, update the driver target
   else if (change_direction || (this->current_speed_ == 0 && !at_target)){
     ESP_LOGD(TAG, "TMC5160_Stepper::loop() - Sending driver target position, speed and acceleration to start motor");
+    
+    // TODO: Add a next movement speed/acceleration vars, and use them to set the speed acceleration if valid, else fall back to
+    // the standard ones. Once the speed has been set by them, reset on next movement
+    
     // Acceleration is not change by an event handler like the speed, so update it any time we start a movement
     motor->setMaxSpeed(this->max_speed_);
     motor->setAcceleration(this->acceleration_);
-    // this->motor->setAccelerations(this->acceleration_, this->deceleration_, this->acceleration_, this->deceleration_);
+    //this->motor->setAccelerations(this->acceleration_, this->deceleration_, this->acceleration_, this->deceleration_);
+
+
     this->motor->setTargetPosition(this->target_position);
 
     // If the motor is not enabled, enable it now

@@ -1,0 +1,71 @@
+# use 'esphome window_blind_dining.yaml compile' to build.
+substitutions:
+  device_name: ble-scanner
+  friendly_name: Bluetooth LE Scanner
+  node_name: ble_scanner
+  # wifi_static_ip: !secret wifi_static_ip_ble_scanner
+  
+packages:
+  # Board specific packages
+  board: !include packages/board_esp32_az_delivery_devkit_v4.yaml
+
+  # Boilerplate packages
+  # wifi: !include packages/wifi_static_ip.yaml
+  # ota: !include packages/ota.yaml
+  uptime_sensor: !include packages/uptime_sensor.yaml
+
+esphome:
+  includes: ble_scanner_includes.h
+
+# Example configuration entry for finding
+# MAC addresses, Service UUIDs, iBeacon UUIDs, and identifiers
+esp32_ble_tracker:
+  on_ble_advertise:
+    - then:
+      - lambda: |-
+          auto start = id(discovered_devices).begin();
+          auto end = id(discovered_devices).end();
+          std::string address = x.address_str();
+
+          auto it = std::find(start, end, address);
+
+          if (it == end) {
+            id(discovered_devices).push_back(address);
+
+            ESP_LOGW("ble_adv", "New BLE device");
+            ESP_LOGW("ble_adv", "  Unique Device Count: %i", id(discovered_devices).size());
+            ESP_LOGI("ble_adv", "  address: %s", address.c_str());
+            ESP_LOGI("ble_adv", "  name: %s", x.get_name().c_str());
+            ESP_LOGI("ble_adv", "  Advertised service UUIDs:");
+            for (auto uuid : x.get_service_uuids()) {
+                ESP_LOGI("ble_adv", "    - %s", uuid.to_string().c_str());
+            }
+            ESP_LOGI("ble_adv", "  Advertised service data:");
+            for (auto data : x.get_service_datas()) {
+                ESP_LOGI("ble_adv", "    - %s: (length %i)", data.uuid.to_string().c_str(), data.data.size());
+
+                std::ostringstream ss;
+                for (int i : data.data)
+                  ss << " " << std::setfill('0') << std::setw(2) << std::hex << i;
+                std::string data_hex_string = ss.str();
+                ESP_LOGI("ble_adv", "    - data: 0x%s", data_hex_string.c_str());
+            }
+            ESP_LOGI("ble_adv", "  Advertised manufacturer data:");
+            for (auto data : x.get_manufacturer_datas()) {
+                ESP_LOGI("ble_adv", "    - %s: (length %i)", data.uuid.to_string().c_str(), data.data.size());
+
+                std::ostringstream ss;
+                for (int i : data.data)
+                  ss << " " << std::setfill('0') << std::setw(2) << std::hex << i;
+                std::string data_hex_string = ss.str();
+                ESP_LOGI("ble_adv", "    - data: 0x%s", data_hex_string.c_str());
+            }
+          }
+
+globals:
+  - id: discovered_devices
+    type: std::vector<std::string>
+    restore_value: no
+
+logger:
+  level: INFO

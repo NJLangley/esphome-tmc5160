@@ -31,6 +31,11 @@ class TMC5160_Stepper : public stepper::Stepper, public Component {
   bool get_is_driver_enabled() { return is_driver_enabled_; }
   void on_update_speed() override;
 
+  float get_acceleration() { return acceleration_; }
+  float get_deceleration() { return deceleration_; }
+  float get_max_speed() { return max_speed_; }
+
+
  protected:
   bool enabled_pin_state_;
   InternalGPIOPin *cs_pin_;

@@ -4,13 +4,22 @@ substitutions:
   friendly_name: Kitchen Window Blind
   node_name: kitchen_window_blind
   wifi_static_ip: !secret wifi_static_ip_kitchen_window_blind
-  closed_position: '8000'
-  opening_clutch_backlash_adjustment: '0'
+  closed_position: '8300'
+  opening_clutch_backlash_adjustment: '18'
 
 packages:
   # Board specific packages
   board: !include packages/board_esp8266_d1_mini.yaml
-  stepper: !include packages/tmc5160_stepper_esp8266_d1_mini.yaml
+  stepper: !include
+    file: packages/tmc5160_stepper_esp8266_d1_mini.yaml
+    vars:
+      # motor_max_speed: '500'
+      # motor_acceleration: '400'
+      # motor_deceleration: '400'
+      motor_max_speed: '1000'
+      motor_acceleration: '1500'
+      motor_deceleration: '1500'
+      motor_direction: reversed
   
   # Functionallity packages
   roller_blind: !include packages/roller_blind.yaml

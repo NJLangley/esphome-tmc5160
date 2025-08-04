@@ -1,9 +1,9 @@
 # use 'esphome window_blind_gym.yaml compile' to build.
 substitutions:
-  device_name: gym-window-blind
-  friendly_name: Gym Window Blind
-  node_name: gym_window_blind
-  wifi_static_ip: !secret wifi_static_ip_gym_window_blind
+  device_name: c-bedroom-window-blind
+  friendly_name: C Bedroom Window Blind
+  node_name: c_bedroom_window_blind
+  wifi_static_ip: !secret wifi_static_ip_c_bedroom_window_blind
   closed_position: '4400'
   opening_clutch_backlash_adjustment: '0'
 

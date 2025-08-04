@@ -4,8 +4,8 @@ substitutions:
   friendly_name: Lounge Window Blind
   node_name: lounge_window_blind
   wifi_static_ip: !secret wifi_static_ip_lounge_window_blind
-  closed_position: '8000'
-  opening_clutch_backlash_adjustment: '20'
+  closed_position: '8300'
+  opening_clutch_backlash_adjustment: '10'
 
 packages:
   # Board specific packages
@@ -13,9 +13,13 @@ packages:
   stepper: !include
     file: packages/tmc5160_stepper_esp8266_d1_mini.yaml
     vars:
-      motor_max_speed: '1350'
-      motor_acceleration: '2000'
-      motor_deceleration: '2000'
+      # motor_max_speed: '500'
+      # motor_acceleration: '400'
+      # motor_deceleration: '400'
+      motor_max_speed: '1000'
+      motor_acceleration: '1500'
+      motor_deceleration: '1500'
+      motor_direction: reversed
   
   # Functionallity packages
   roller_blind: !include packages/roller_blind.yaml
