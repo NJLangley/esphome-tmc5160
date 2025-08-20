@@ -1,0 +1,28 @@
+{
+  "storage_version": 1,
+  "name": "ble-scanner",
+  "friendly_name": null,
+  "comment": null,
+  "esphome_version": "2024.10.2",
+  "src_version": 1,
+  "address": null,
+  "web_port": null,
+  "esp_platform": "ESP32",
+  "build_path": ".esphome/build/ble-scanner",
+  "firmware_bin_path": ".esphome/build/ble-scanner/.pioenvs/ble-scanner/firmware.bin",
+  "loaded_integrations": [
+    "esp32",
+    "esp32_ble",
+    "esp32_ble_tracker",
+    "esphome",
+    "globals",
+    "logger",
+    "preferences",
+    "sensor",
+    "substitutions",
+    "uptime"
+  ],
+  "no_mdns": false,
+  "framework": "arduino",
+  "core_platform": "esp32"
+}

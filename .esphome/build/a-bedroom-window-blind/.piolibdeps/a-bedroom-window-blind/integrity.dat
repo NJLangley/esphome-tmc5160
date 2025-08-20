@@ -1,0 +1,7 @@
+SPI
+esphome/ESPAsyncTCP-esphome@2.0.0
+DNSServer
+ESP8266WiFi
+ESP8266mDNS
+esphome/ESPAsyncWebServer-esphome@3.2.2
+tommag/TMC5160

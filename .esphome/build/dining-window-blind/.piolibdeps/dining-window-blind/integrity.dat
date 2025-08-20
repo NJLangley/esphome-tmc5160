@@ -1,0 +1,7 @@
+SPI
+ESP32Async/ESPAsyncWebServer@3.7.10
+ESP8266mDNS
+ESP32Async/ESPAsyncTCP@2.0.0
+tommag/TMC5160@1.1.0
+ESP8266WiFi
+DNSServer

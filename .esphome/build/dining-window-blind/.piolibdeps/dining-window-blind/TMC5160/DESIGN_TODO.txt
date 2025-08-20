@@ -1,0 +1,15 @@
+* TMC51xx class. Hold
+  * common methods to TMC5130/TMC5160
+  * a reference to a CommunicationInterface => SPI, UART w/ transceiver, UART w/o transceiver, ESP32 UART, ... The API is public so the comm. interface can be re-defined by the user. /!\ the communication interfaces will be instantiated by new ? or must be declared in main ?
+
+* TMC5130 / TMC5160 have a default constructor (/!\ uninstantiated reference ?) and redefine/add methods as needed
+
+* Registers : mostly identical between the 2 ICs... => how to handle it ?
+    ? declared inside the TMC51x class : an enum of all register addresses then bitfields ? or bitfields with included address ? subclass of register ? or template ?
+    ? a separate class ? NO
+    ? https://yogiken.files.wordpress.com/2010/02/c-register-access.pdf ! => /!\ pas de cached write
+    ? mix des techniques existantes ? classe Register<address, writePolicy> qui contient des objets BitFields ? tester les performances
+
+TODO : 
+* chain test example
+* optimized esp32 uart
